@@ -1,883 +1,750 @@
-\#**CF-MSX\_07\_「system.c 関数説明」**
+## CF-MSX\_07\_「system.c Function Explanation」
 
-\#\# 私：
+# Me:
 
-\`forth\_cf\_msx\_demo.asmの次のステップに移る前にsystem.cの整理がしたいです。次の１）２）を教えてもらえますか？\`
-
-　\`１）system.c内部の関数の役割の説明リスト\`
-
-　\`２）main関数の内部構造と処理の進行手順\`
-
- \`◎system.c内部の関数\`
-
- 　 \`void ttyMode(int isRaw)\` 
-
- 　 \`int qKey()\` 
-
- 　 \`int key()\` 
-
- 　 \`void ms(cell sleepForMS)\` 
-
- 　 \`cell timer()\` 
-
- 　 \`void zType(const char\* str)\` 
-
- 　 \`void emit(const char ch)\` 
-
- 　 \`cell fOpen(cell name, cell mode)\` 
-
- 　 \`void fClose(cell fh) { fclose((FILE\*)fh); }\` 
-
- 　 \`cell fRead(cell buf, cell sz, cell fh)\` 
-
- 　 \`cell fWrite(cell buf, cell sz, cell fh)\` 
-
- 　 \`cell fSeek(cell fh, cell offset)\` 
-
- 　 \`char tib\[256\];\` 
-
- 　 \`void repl()\` 
-
- 　 \`void boot(const char \*fn)\` 
-
+~~~
+Before moving on to the next step in forth_cf_msx_demo.asm, I want to organize system.c. Could you tell me the following 1) and 2)?
+1) A list explaining the roles of functions inside system.c
+2) The internal structure of the main function and the processing flow
  
 
- \`◎main関数\` 
+◎Functions inside system.c
+void ttyMode(int isRaw)
+int qKey()
+int key()
+void ms(cell sleepForMS)
+cell timer()
+void zType(const char* str)
+void emit(const char ch)
+cell fOpen(cell name, cell mode)
+ 
+void fClose(cell fh) { fclose((FILE*)fh); }
+cell fRead(cell buf, cell sz, cell fh)
+cell fWrite(cell buf, cell sz, cell fh)
+cell fSeek(cell fh, cell offset)
+char tib[256];
+void repl()
+void boot(const char *fn)
+ 
 
- 　\`int main(int argc, char \*argv\[\]) {\` 
+◎main function
+int main(int argc, char *argv[]) {
+ 
+cfInit();
+addLit(“argc”, (cell)argc);
+strcpy(tib, “argX”);
+for (int i=0; (i<argc) && (i<10); i++) {
+tib[3] = ‘0’ + i;
+addLit(tib, (cell)argv[i]);
+ 
+}
+boot((1<argc) ? argv[1] : 0);
+while (1) { repl(); } 
+return 0;
+ 
+}
 
- 　　\`cfInit();\` 
+~~~
 
- 　　\`addLit("argc", (cell)argc);\` 
+## ChatGPT:
 
- 　　\`strcpy(tib, "argX");\` 
-
- 　　\`for (int i=0; (i\<argc) && (i\<10); i++) {\` 
-
- 　　　\`tib\[3\] \= '0' \+ i;\` 
-
- 　　　\`addLit(tib, (cell)argv\[i\]);\` 
-
- 　　　\`}\` 
-
- 　　\`boot((1\<argc) ? argv\[1\] : 0);\` 
-
- 　　\`while (1) { repl(); }\` 
-
- 　　\`return 0;\` 
-
- 　\`}\`
-
-\#\# ChatGPT：
-
-以下、提示してくれた `system.c` の関数群と `main()` について、「何のためにあるか」「VM/REPLのどこで使われるか」が見えるように整理して説明します（forth-dwc / cf 系の“最小OS層”としての system.c という前提で書きます）。
+Below, I will organize and explain the functions in the provided `system.c` and the `main()` function to clarify “their purpose” and “where they are used within the VM/REPL” (written under the premise that `system.c` serves as the “minimal OS layer” for the forth-dwc / cf family).
 
 ---
 
-## **1\) system.c 内部の関数の役割（説明リスト）**
+## **1) Roles of Functions Inside system.c (Explanation List)**
 
-### **端末（キーボード入出力・raw入力）系**
+### **Terminal (Keyboard I/O & Raw Input) System**
 
 * **`void ttyMode(int isRaw)`**
 
-  * 端末（TTY）を **raw/non-raw** に切り替える。
+* Switches the terminal (TTY) between **raw/non-raw** modes.
 
-  * raw にすると、行バッファやエコー等を無効化して **1文字単位**で読めるようになる（ゲームやREPLの即時キー入力向け）。
+* Setting it to raw disables line buffering, echo, etc., enabling **character-by-character** reading (suitable for games or immediate key input in REPL).
 
-  * REPL開始時に raw にして、終了時に元に戻す…のような用途が典型。
+* Typical use case: setting it to raw when starting REPL and reverting it upon exit.
 
 * **`int qKey()`**
 
-  * “**キーが来ているか？**”を **ブロックせず**に調べる関数（query key）。
+* A function that checks “**Is a key being pressed?**” **without blocking** (query key).
 
-  * 実装は `select()` や `kbhit` 相当の仕組みを使うことが多い。
+* Implementation often uses mechanisms equivalent to `select()` or `kbhit`.
 
-  * `ms()` の待ちループや、ノンブロッキング入力処理で使われがち。
+* Commonly used in `ms()` wait loops or non-blocking input processing.
 
 * **`int key()`**
 
-  * 1文字読む（通常は **ブロックする**）。
+* Reads one character (typically **blocks**).
 
-  * REPL の入力取り込み、あるいは Forth の `key` プリミティブに直結する入口。
+* Entry point directly connected to REPL input capture or Forth's `key` primitive.
 
-* **`void emit(const char ch)`**
+* **`void emit (const char ch)`**
 
-  * 1文字出力する（Forthの `emit` 相当）。
+* Outputs one character (equivalent to Forth's `emit`).
 
-  * 端末表示や `zType()` の内部でも使える。
+* Can be used for terminal display or internally in `zType()`.
 
 * **`void zType(const char* str)`**
 
-  * 文字列を出力（Forthの `type` 相当の“C側ユーティリティ”）。
+* Outputs a string (a “C-side utility” equivalent to Forth's `type`).
 
-  * 実装としては `while(*str) emit(*str++);` みたいな形になることが多い。
+* Implementation often takes the form `while(*str ) emit(*str++);`.
 
-  * 起動メッセージ、エラー表示、REPLプロンプトなどで使う。
+* Used for startup messages, error displays, REPL prompts, etc.
 
 ---
 
-### **時間（スリープ・タイマ）系**
+### **Time (Sleep/Timer) Functions**
 
 * **`void ms(cell sleepForMS)`**
 
-  * 指定ミリ秒スリープ（Forthの `ms` 相当）。
+* Sleeps for the specified number of milliseconds (equivalent to Forth's `ms`).
 
-  * 実装は `usleep`/`nanosleep`/Windowsなら`Sleep`など。
+* Implementation uses `usleep`/`nanosleep`/`Sleep` on Windows, etc.
 
 * **`cell timer()`**
 
-  * “現在時刻”または“起動後の経過時間”を返す（単位は実装依存）。
+* Returns " current time“ or ”time elapsed since startup" (unit depends on implementation).
 
-  * Forth側で `timer` を使って経過時間を測ったり、乱数種に使ったりする。
+* Used in Forth to measure elapsed time with `timer` or as a seed for random numbers.
 
 ---
 
-### **ファイルI/O（Forthのファイルプリミティブ）系**
+### **File I/O (Forth file primitives)**
 
 * **`cell fOpen(cell name, cell mode)`**
 
-  * ファイルを開く（戻り値は `FILE*` を `cell` に詰めたハンドルであることが多い）。
+* Opens a file (the return value is often a handle packed into `cell`, typically a `FILE*`).
 
-  * `name` はC文字列ポインタ（Forth文字列→C文字列変換後）を想定してることが多い。
+* `name` is often assumed to be a C string pointer (after conversion from Forth string to C string).
 
-  * `mode` は `"r" "w" "a" "rb"` 等のポインタ、またはモード番号→内部で文字列化、など実装次第。
+* `mode` is a pointer like `“r” " w“ ‘a’ ”rb"`, or a mode number converted to a string internally, depending on the implementation.
 
 * **`void fClose(cell fh)`**
 
-  * `FILE*` を閉じる（提示の通り `fclose((FILE*)fh)`）。
+* Closes the `FILE*` (as indicated, `fclose((FILE*)fh)`).
 
 * **`cell fRead(cell buf, cell sz, cell fh)`**
 
-  * `fh` から `sz` バイト読み、`buf` に入れる。
+* Reads `sz` bytes from `f h` into `buf`.
 
-  * 返り値は実際に読めたサイズ（`fread` の戻り）にするのが一般的。
+* The return value is typically the actual size read (the return value of `fread`).
 
 * **`cell fWrite(cell buf, cell sz, cell fh)`**
 
-  * `buf` から `sz` バイト書き、返り値は書けたサイズ。
+* Writes `sz` bytes from `buf`. The return value is the size written.
 
 * **`cell fSeek(cell fh, cell offset)`**
 
-  * `fh` のファイル位置を移動（`fseek/fseeko` 相当）。
+* Moves the file position in `fh` (equivalent to `fseek/fseeko`).
 
-  * `offset` の基準（先頭/現在/末尾）を固定にしている最小実装もあるし、3引数にして `whence` も渡す実装もある。
+* Some minimal implementations fix the whence (start/current/end) based on `offset`, while others use three arguments to pass `whence`.
 
-  * forth-dwc の64bit化の話題で出ていたように、OS/処理系で `fseek` のオフセット型差が出るので、ここを“吸収層”にするのが目的。
+* As discussed in the 64-bit conversion of forth-dwc, OS/implementation differences in `fseek`'s offset type cause variations here. The goal is to make this a “buffer” that absorbs those differences.
 
 ---
 
-### **入力バッファ（TIB）・REPL起動系**
+### **Input Buffer (TIB) / REPL Startup System**
 
 * **`char tib[256];`**
 
-  * **Text Input Buffer** 的なもの。
+* A **Text Input Buffer**.
 
-  * REPLで読み込んだ1行、あるいは `boot()` で投入する文字列などを一時的に載せる場所。
+* Temporarily holds a line read by the REPL or strings injected by `boot()`.
 
-  * `addLit("argX", argv[i])` のキー名生成に流用しているのも、まさに“一時文字列バッファ”用途。
+* Its reuse for generating key names in `addLit(“argX”, argv[i])` is precisely for this “temporary string buffer” purpose.
 
 * **`void repl()`**
 
-  * Read–Eval–Print Loop の **1サイクル**（または1行分）を実行する関数。
+* Function that executes **one cycle** (or one line) of the Read–Eval–Print Loop.
 
-  * 典型的には：
+* Typically:
 
-    * 入力を `tib` へ
+* Read input into `tib`
 
-    * `>in` を0に
+* Set `>in` to 0
 
-    * インタプリタ（`interpret`）を回す
+* Run the interpreter (`interpret`)
 
-    * `ok` を出す
+* Output `ok`
 
-  * “外側の無限ループ”は `main()` で回し、`repl()` は「一回分」を担当するのが定番。
+* The “outer infinite loop” is usually handled by `main()`, while `repl()` handles “one iteration”.
 
 * **`void boot(const char *fn)`**
 
-  * 起動処理。
+* Startup processing.
 
-  * 典型的には：
+* Typically:
 
-    * 端末モード初期化（raw等）
+* Initialize terminal mode (raw, etc.)
 
-    * `fn` があればそのファイルを読み込み・評価（スクリプト実行）
+* If `fn` exists, read and evaluate that file (execute script)
 
-    * なければデフォルトの `boot.fth` 相当を探す、等
+* If not, search for equivalent default `boot.fth`, etc.
 
-  * “Forthの初期辞書はC側で作った上で、起動スクリプトで増やす”設計の要。
+* Crucial for the design: “Forth's initial dictionary is created in C, then expanded by the startup script.”
 
 ---
 
-## **2\) main関数の内部構造と処理の進行手順**
+## **2) Internal Structure and Execution Flow of the main Function**
 
-提示された `main()` を、処理の意味が分かる順に分解します。
+We'll break down the provided `main()` in a way that makes its processing meaning clear.
 
-### **ステップ0: VM/辞書の初期化**
+### **Step 0: Initialize VM/Dictionary**
 
 `cfInit();`
 
-* Forth VM のコアを初期化。
+* Initialize the Forth VM core.
 
-* 典型的には：
+* Typically:
 
-  * スタック/リターンスタック初期化
+* Initialize stack/return stack
 
-  * 辞書ポインタ初期化（HERE/LASTなど）
+* Initialize dictionary pointers (HERE/LAST, etc.)
 
-  * プリミティブ登録（Cで定義されたワード群を辞書に追加）
+* Register primitives (Adds C-defined words to the dictionary)
 
-  * 変数（`base`, `state`, `>in` など）初期化
+* Initializes variables (`base`, `state`, `>in`, etc.)
 
-### **ステップ1: `argc` を Forth から参照できるようにする**
+### **Step 1: Make `argc` accessible from Forth**
 
-`addLit("argc", (cell)argc);`
+`addLit(“argc”, (cell)argc);`
 
-* “名前→値”のリテラル（定数/変数的エントリ）を辞書に追加。
+* Adds a " Name→Value“ literal (constant/variable entry) added to dictionary.
 
-* Forth側で `argc` というワードを実行すると、スタックに `argc` が積まれる、みたいな設計が多いです。
+* In Forth, executing the word `argc` typically pushes `argc` onto the stack.
 
-### **ステップ2: `argv[i]` を `arg0`〜`arg9` として辞書登録**
+### **Step 2: Register `argv[i]` as `arg0` to `arg9` in the dictionary**
 
-`strcpy(tib, "argX");`  
-`for (int i=0; (i<argc) && (i<10); i++) {`  
-    `tib[3] = '0' + i;`  
-    `addLit(tib, (cell)argv[i]);`  
-`}`
+~~~
+strcpy(tib, ”argX");
+ 
+for (int i=0; (i<argc) && (i<10); i++) { 
+tib[3] = ‘0’ + i; 
+addLit(tib, (cell)argv[i]);
+ 
+} 
+~~~
 
-* `tib` を一時作業バッファにして `"arg0" .. "arg9"` を作り、
+* Use `tib` as a temporary buffer to create `“arg0” .. “arg9”`,
 
-* それぞれの値に `argv[i]`（文字列ポインタ）を登録。
+* and register `argv[i]` (string pointer) for each value.
 
-* こうすると Forth側で `arg1` を読むだけで “起動引数1のC文字列ポインタ” を得られます。
+* This way, in Forth, simply reading `arg1` 
+“C string pointer for startup argument 1”.
 
-  * その後、Forth側に `cstr>string` 的な変換ワードがあれば取り回せる。
+* If Forth has a conversion word like `cstr>string`, it can then handle it.
 
-### **ステップ3: 起動スクリプト実行（オプション）**
+### **Step 3: Execute Startup Script (Optional)**
 
 `boot((1<argc) ? argv[1] : 0);`
 
-* 引数が1つ以上（= `argv[1]` がある）なら、それを“起動ファイル名”として `boot()` に渡す。
+* If there is at least one argument (= `argv [1]`), pass it to `boot()` as the “boot file name”.
 
-  * つまり `./cf hello.fth` 的に起動すると、最初に `hello.fth` をロードして評価する想定。
+* That is, when booting with `./cf hello.fth`, it is expected to first load and evaluate `hello.fth`.
 
-* 引数が無ければ `boot(0)`。
+* If no arguments are present, `boot(0)`.
 
-  * この場合、`boot()` 側が「デフォルトファイルを探す」か「何もしない」か「起動メッセージだけ」かは実装次第。
+* In this case, whether `boot()` “searches for a default file,” “does nothing,” or “only displays a startup message” depends on the implementation.
 
-### **ステップ4: 無限に REPL を回す**
+### **Step 4: Run the REPL Infinitely**
 
 `while (1) { repl(); }`
 
-* `repl()` が「1回の対話単位（1行 or 1コマンド列）」を処理し、戻ってきたらまた次へ。
+* `repl()` processes “one interactive unit (one line or one command string)”, and when it returns, it moves on to the next one.
 
-* ここで `repl()` が例外/エラーを内部で握りつぶして `ok` に戻す設計だと、常時対話が続けられる。
+* If `repl()` is designed to internally swallow exceptions/errors and return `ok`, the interaction can continue indefinitely.
 
-### **ステップ5: 形式上のreturn**
+### **Step 5: Formal return**
 
 `return 0;`
 
-* 実際は無限ループなので通常到達しない。
+*   Since it's actually an infinite loop, this is rarely reached.
 
 ---
 
-### **補足：この構造の“整理ポイント”が見える観点**
+### **Supplement: Perspective Revealing the “Organization Points” of This Structure**
 
-system.c を整理するなら、機能別にセクション分けすると一気に読みやすくなります。
+If you're organizing system.c, dividing it into sections by functionality makes it much easier to read.
 
-* 端末層：`ttyMode/qKey/key/emit/zType`
+*   Terminal Layer: `ttyMode/qKey/key/emit/zType`
 
-* 時間層：`ms/timer`
+* Time layer: `ms/timer`
 
-* FS層：`fOpen/fClose/fRead/fWrite/fSeek`
+* FS layer: `fOpen/fClose/fRead/fWrite/fSeek`
 
-* REPL層：`tib/repl/boot`
+* REPL layer: `tib/repl/boot`
 
-* main：`cfInit` と “引数→辞書注入” と “boot→repl”
-
----
-
-必要なら、次のステップとして **「system.c の並び替え案（見出しコメント付き）」** や、`addLit("argX", argv[i])` が“文字列ポインタ”である点を踏まえて **Forth側で扱いやすくする受け口（例：`arg1$` のように長さ付き文字列にする）** の設計案も一緒に出せます。
-
-\#\# 私：  
-\`cf.cで出てくる関数についても、役割の説明リストを教えてください。\`
-
-\`static void push(cell x)\`   
-\`static cell pop()\`   
-\`static void rpush(cell x)\`   
-\`static cell rpop()\`   
-\`static void comma(cell n)\`   
-\`static int changeState(int newState)\`   
-\`static void checkWS(char c)\`   
-\`static int nextWord()\`  
-\`static DE\_T \*addWord(char \*w)\`   
-\`static DE\_T \*findWord(const char \*w)\`   
-\`static void compileNumber(cell n)\`   
-\`void addLit(char \*name, cell val)\`   
-\`static void cfInner(cell pc)\`   
-\`static int isNumber(const char \*w)\`   
-\`static void executeWord(DE\_T \*dp)\`   
-\`static void compileWord(DE\_T \*dp)\`   
-\`static int isStateChange()\`   
-\`void cfOuter(const char \*src)\`   
-\`void cfInit()\`
-
-\#\# ChatGPT：
-
-了解です。提示の `cf.c` はだいたい「Forth の中核（スタック/辞書/インタプリタ/コンパイラ）」が入っていて、関数は大きく **(A) スタック**, **(B) 辞書/コンパイル**, **(C) 外側インタプリタ**, **(D) 内側インタプリタ** に分かれます。以下、役割リストです。
+* main: `cfInit` and “argument → dictionary injection” and “boot → repl”
 
 ---
 
-## **A. データスタック / リターンスタック**
+If needed, the next step could be **"system. c reordering proposal (with header comments)“** and, considering that `addLit(‘argX’, argv[i])` is a ”string pointer", we can also propose a design for **a Forth-friendly receiving mechanism (e.g., making it a length-specified string like `arg1$`)**.
+
+## Me:
+Please also provide a list explaining the roles of the functions appearing in cf.c.
+ 
+
+~~~
+static void push(cell x) 
+static cell pop () 
+static void rpush(cell x)
+static cell rpop()
+static void comma(cell n)
+static int changeState(int newState)
+static void checkWS(char c)
+static int nextWord()
+static DE_T *addWord(char *w)
+static DE_T *findWord(const char *w)
+static void compileNumber(cell n)
+ 
+void addLit(char *name, cell val)
+static void cfInner(cell pc)
+static int isNumber(const char *w)
+static void executeWord(DE_T *dp)
+static void compileWord(DE_T *dp)
+ 
+static int isStateChange() 
+void cfOuter(const char *src) 
+void cfInit() 
+~~~
+## ChatGPT:
+
+Understood. The `cf.c` file contains the core components of Forth (stack/dictionary/interpreter/compiler), with functions broadly categorized into **(A) Stack**, **(B) Dictionary/Compiler**, and **(C) Outer Interpreter**, **(D) Inner Interpreter**. Below is the role list: --- ## **A. Data Stack / Dictionary / Compiler**, **(C) Outer Interpreter**, **(D) Inner Interpreter**. Below is the role list. --- ## **A. Data Stack / Dictionary / Compiler**, **(C) Outer Interpreter**, **(D) Inner Interpreter**. Below is the role list. --- ## **A. Data Stack / Dictionary / Compiler**, **(C) Outer Interpreter**, **(D) Inner Interpreter**. Below is the role list. --- ## **A. Data Stack / Dictionary / Compiler**, **(C) Outer Interpreter**, **(D) Inner Interpreter**. Below is the role list. --- ## **A. Data Stack / Dictionary / Compiler**, **
+ Dictionary/Compiler**, **(C) Outer Interpreter**, and **(D) Inner Interpreter**. Below is a list of roles.
+
+---
+
+## **A. Data Stack / Return Stack**
 
 * **`static void push(cell x)`**
 
-  * データスタックへ 1セル push。
+* Pushes 1 cell onto the data stack.
 
-  * Forth の演算は基本ここに積んで進む。
+* Forth operations are fundamentally pushed here and proceed.
 
 * **`static cell pop()`**
 
-  * データスタックから 1セル pop。
+* Pops 1 cell from the data stack.
 
-  * 演算やワード実行時に引数を取り出す。
+* Retrieves arguments during operations or word execution.
 
-* **`static void rpush(cell x)`**
+* **`static void rpush (cell x)`**
 
-  * リターンスタックへ push。
+* Pushes a cell onto the return stack.
 
-  * DO..LOOP の制御値、復帰先、内側インタプリタの戻り管理などに使う。
+* Used for DO..LOOP control values, return addresses, and managing inner interpreter returns.
 
 * **`static cell rpop()`**
 
-  * リターンスタックから pop。
+* Pops a cell from the return stack.
 
 ---
 
-## **B. 辞書（Dictionary）とコンパイル支援**
+## **B. Dictionary and Compilation Support**
 
 * **`static void comma(cell n)`**
 
-  * 「辞書領域（HERE）へ 1セル書き込み、HERE を進める」関数。
+* Function to “write 1 cell to the dictionary area (HERE) and advance HERE”.
 
-  * Forth の `,`（comma）のC実装に近い。
+* Similar to the C implementation of Forth's `,` (comma).
 
-  * コンパイル時にトークン/アドレス/即値などを連結していく核。
+* Core for concatenating tokens/addresses/immediate values during compilation.
 
-* **`static DE_T *addWord(char *w)`**
+* **`static DE_T *addWord(char *w) `**
 
-  * 新しいワード（辞書エントリ）を辞書に追加し、`DE_T*`（dictionary entry）を返す。
+* Adds a new word (dictionary entry) to the dictionary and returns a `DE_T*` (dictionary entry).
 
-  * 名前を保存し、リンク（`last`）を更新し、コードフィールド等を初期化する役。
+* Responsible for saving the name, updating the link (`last`), and initializing the code field, etc.
 
 * **`static DE_T *findWord(const char *w)`**
 
-  * 辞書を探索して、名前 `w` に一致するワードを探す（見つかれば `DE_T*`、無ければNULL）。
+* Searches the dictionary for a word matching the name `w` (returns `DE_T*` if found, NULL otherwise).
 
-  * 外側インタプリタが “入力トークンがワードか？”を判断する要。
+* Essential for the outer interpreter to determine “Is the input token a word?”.
 
 * **`static void compileNumber(cell n)`**
 
-  * 数値リテラル `n` を「実行時にスタックへ積むコード」として辞書にコンパイルする。
+* Compiles the numeric literal `n` into the dictionary as “code to push onto the stack at runtime”.
 
-  * 典型：`LIT`（もしくは `doLit` 的なプリミティブ）と `n` を `comma()` で並べる。
+* Typical: Place `LIT` (or a `doLit`-like primitive) and `n` side by side using `comma()`.
 
 * **`void addLit(char *name, cell val)`**
 
-  * `name` という “ワード名” を作り、その実行時効果が「`val` を push」になるよう登録するユーティリティ。
+* Utility to create a “word name” `name` and register it with the runtime effect “push `val`”.
 
-  * `main()` 側で `argc` や `arg0..` を作るのに使ってたのがこれ。
+* This is what `main()` used to create `argc` and `arg0..`.
 
 ---
 
-## **C. 入力のトークン化 / 外側インタプリタ支援**
+## **C. Input Tokenization / Outer Interpreter Support**
 
 * **`static void checkWS(char c)`**
 
-  * whitespace 判定（スペース/タブ/改行など）。
+* Whitespace detection (space/ tab/newline, etc.).* Supports `nextWord()`, which extracts words from input.* **`static int nextWord()`*** Retrieves the next “word” while referencing the input buffer (e.g., `tib`) and `>in`.* Often places the extracted word in a work area and returns success/failure (input end).* **`static int isNumber(const char *w) `*** Determines if `w` can be interpreted as a number (often checks `base` too).* The return value is “true if numeric, false otherwise” + the actual value is often stored in a separate variable/global.* **`static int isStateChange()`*** Helper function to determine if the last word read “changes the STATE?”.* Example: `:` switches to compile mode, `;` to interpreter mode, `[` `]` for temporary switching... etc.* Also relates to how “immediate words” are handled.* **`static int changeState(int newState)`*** Common processing to switch the `state` variable to `newState`.* Many implementations group ancillary processing here (e.g., starting header creation for `:`, appending `EXIT` and finalizing for `;`).* **`void cfOuter(const char *src)`*** Outer Interpreter.* Places `src` (input string) into `tib`, etc., and reads words using `nextWord()` →* If found by `findWord()`, “execute or compile”* If not found, numerically interprets with `isNumber()` ` to interpret numerically and “push or compileNumber”* If neither, error* “The core of Forth-like interactive processing”.---## **D. Execution (Inner Interpreter) and “Execute/Compile Branch”*** **`static void cfInner(cell pc)`*** Inner Interpreter.* Receives `pc` (equivalent to the program counter in threaded code), and sequentially fetches tokens from the token stream to execute the corresponding primitives/words.* Implementation varies between token-threaded / direct-threaded / subroutine-threaded, but its role is the “execution loop”.* **`static void executeWord(DE_T *dp)`*** Executes dictionary entry `dp` “immediately”.* If a primitive, calls the C function; if a colon definition, enters `cfInner()`, etc.* **`static void compileWord(DE_T *dp)`**
+* “Compiles” dictionary entry `dp` into the dictionary.
 
-  * 入力から単語を切り出す `nextWord()` の補助。
+* For normal words, insert a “call token” using `comma()`.
 
-* **`static int nextWord()`**
-
-  * 入力バッファ（例：`tib`）と `>in` を参照しつつ、次の “単語” を取り出す。
-
-  * 取り出した単語をどこかのワーク領域に置き、成功/失敗（入力終端）を返す形式が多い。
-
-* **`static int isNumber(const char *w)`**
-
-  * `w` が数値として解釈できるか判定する（`base` も参照しがち）。
-
-  * 返り値は「数値なら真、違えば偽」＋実値は別変数/グローバルに入れる実装が多い。
-
-* **`static int isStateChange()`**
-
-  * 直前に読んだ単語が「STATE を変えるものか？」を判定する補助。
-
-  * 例：`:` でコンパイルモードへ、`;` でインタプリタモードへ、`[` `]` で一時的切替…など。
-
-  * “即時語(immediate)” をどう扱うかにも絡む。
-
-* **`static int changeState(int newState)`**
-
-  * `state` 変数を `newState` に切り替える共通処理。
-
-  * 付随処理（例えば `:` のときヘッダ作成を開始、`;` のとき `EXIT` を付けて確定、など）をここに寄せている構造も多い。
-
-* **`void cfOuter(const char *src)`**
-
-  * 外側インタプリタ（Outer Interpreter）。
-
-  * `src`（入力文字列）を `tib` 等に置き、`nextWord()` で単語を読む→
-
-    * `findWord()` で見つかれば「実行 or コンパイル」
-
-    * 見つからなければ `isNumber()` で数値解釈し「push or compileNumber」
-
-    * どちらでもなければエラー
-
-  * “Forthっぽい対話処理の本体”。
+* For immediate words, execute `executeWord()` even during compilation—rules like this are handled here.
 
 ---
 
-## **D. 実行（内側インタプリタ）と「実行/コンパイルの分岐」**
-
-* **`static void cfInner(cell pc)`**
-
-  * 内側インタプリタ（Inner Interpreter）。
-
-  * `pc`（threaded code のプログラムカウンタ相当）を受け取り、  
-     トークン列を順に取り出して対応するプリミティブ/ワードを動かす。
-
-  * token-threaded / direct-threaded / subroutine-threaded で実装は変わるが、役割は「実行ループ」。
-
-* **`static void executeWord(DE_T *dp)`**
-
-  * 辞書エントリ `dp` を「今すぐ実行」する。
-
-  * プリミティブならC関数へ、コロン定義なら `cfInner()` に入る、などを振り分ける。
-
-* **`static void compileWord(DE_T *dp)`**
-
-  * 辞書エントリ `dp` を「辞書へコンパイル」する。
-
-  * 通常語なら “呼び出しトークン” を `comma()` で入れる。
-
-  * 即時語なら compile中でも `executeWord()` しちゃう、などのルールがここに絡む。
-
----
-
-## **E. 初期化**
+## **E. Initialization**
 
 * **`void cfInit()`**
 
-  * VM全体の初期化：スタック初期化、辞書領域初期化、主要変数初期化、プリミティブ登録など。
+* Initializes the entire VM: stack initialization, dictionary area initialization, major variable initialization, primitive registration, etc.
 
-  * `system.c` の `main()` が最初に呼ぶ「エンジンの起動」。
-
----
-
-## **まとめ（読み方のコツ）**
-
-* **`cfOuter()`** が「テキストを読む・解釈する（REPLやbootが呼ぶ先）」
-
-* **`cfInner()`** が「コンパイル済みコードを走らせる（コロン定義の実行ループ）」
-
-* その間を繋ぐのが **`executeWord/compileWord/compileNumber/addWord/findWord`** です。
+* The “engine startup” called first by `main()` in `system.c`.
 
 ---
 
-必要なら次に、あなたが今作っている **MSX-DOS .COM の token-threaded VM**（forth\_cf\_msx\_demo.asm）と対応づけて、
+## **Summary (Reading Tips)**
 
-* `cfOuter` 相当がどこ
+* **`cfOuter()`** is “Reads and interprets text (where REPL or boot calls to)”
 
-* `cfInner` 相当がどこ
+* **`cfInner()`** “Runs compiled code (the execution loop for colon definitions)”
 
-* `comma/compileNumber/compileWord` がどのように「トークン列」を作るか
-
-を **“C版 cf.c → Z80 asm 版 VM”** の対照表にして整理できます。
-
-\#\# 私：
-
-\#define PRIMS(X) \\  
- 	X(DUP, "dup", t=TOS; push(t); ) \\  
- 	X(SWAP, "swap", t=TOS; TOS=NOS; NOS=t; ) \\  
- 	X(DROP, "drop", pop(); ) \\  
-について再度教えてください。
-
- Cで記述されたWORDのすべてが「\#define PRIMS(X) \\」で定義されて、用途に応じて  
- 　　\#define X1(op, name, code) op,  
- 　　\#define X2(op, name, code) NCASE op: code  
- 　　\#define X3(op, name, code) { op, name, 0 },  
-で利用されていると理解しています。  
- Cで記述されたCFのWORDはこのPRIMSで記述されたものですべてでしょうか？cf-boot.fthやdisk.xfは外部ファイルとして読み込まれて、PRIMS(X)に追加されていくのでしょうか？
-
-\#\# ChatGPT：
-
-理解はかなり合っています。ポイントは、
-
-* **`PRIMS(X)` は「Cで実装された *プリミティブ(最下層ワード)* の一覧表」**
-
-* **`cf-boot.fth` や `disk.xf` は「起動時に読み込まれて“辞書にワードを追加する”データ」**
-
-* **外部ファイルが `PRIMS(X)` に“追加される”わけではない**
-
-…です。
+* Connecting these is **`executeWord/compileWord/compileNumber/addWord/findWord`**.
 
 ---
 
-## **1\) `PRIMS(X)` で定義されるのは「Cプリミティブ」全部か？**
+If needed, next, map these to the **MSX-DOS .COM token-threaded VM** (forth\_cf\_msx\_demo.asm) you're currently building, you can organize:
 
-あなたの言う通り、典型的にはこの1つのリストから
+* Where the `cfOuter` equivalent is
 
-* `X1(op,name,code) op,` → **enum の opcode 一覧**
+* Where the `cfInner` equivalent is
 
-* `X2(op,name,code) case op: code` → **内側インタプリタの switch 実行本体**
+* `comma/compileNumber/compileWord` construct the “token stream”
 
-* `X3(op,name,code) { op, name, 0 },` → **“opcode ↔ 名前” の表（辞書初期化用）**
+into a **“C version cf.c → Z80 asm version VM”** comparison table.
 
-を生成します。
+# # Me: 
 
-なので \*\*「Cでワードとして公開したい“プリミティブ”は、基本すべて PRIMS に並べる」\*\*設計が多いです。
+~~~
+#define PRIMS(X) \ 
+X(DUP, “dup”, t=TOS; push(t); ) \ 
+X(SWAP, ‘swap’, t=TOS; TOS=NOS; NOS=t; ) \ 
+X(DROP, “drop”, pop(); ) \ 
+(omitted below)
+~~~
+ Please explain this again.
+ 
 
-ただし注意点が2つあります。
+I understand that all WORDs written in C are defined using `#define PRIMS(X) \` and are utilized as follows depending on their purpose:
+~~~
+#define X1(op, name, code) op,
+#define X2(op, name, code) NCASE op: code
+#define X3(op, name, code) { op, name, 0 } , 
+~~~
+.
+Are all CF WORDs written in C described by this PRIMS? Are `cf-boot.fth` and `disk.xf` loaded as external files and added to `PRIMS(X)`?
 
-### **注意A：Cに関数があっても「ワード」じゃないものがある**
+## ChatGPT:
 
-`push/pop/findWord` みたいな補助関数は C で書かれていても **Forthのワードではありません**。  
- ワードとして公開されるのは「辞書に登録され、名前を持つもの」です。
+Your understanding is largely correct. The key points are:
 
-### **注意B：例外的に PRIMS 以外で登録するワードも“あり得る”**
+* * *`PRIMS(X)` is a “list of *primitives (lowest-level words)* implemented in C”**
 
-例えば、
+* **`cf-boot.fth` and `disk.xf` are “data loaded at boot time that ‘adds words to the dictionary’”**
 
-* `addWord()` を直接呼んで「特殊ワード」を個別登録する
+* * *External files are not “added” to `PRIMS(X)`.**
 
-* “状態遷移”(`:` `;` `[` `]`) を PRIMS ではなく outer interpreter の特別扱いで処理する
+...is correct.---
 
-みたいな実装もあります（あなたが挙げていた `isStateChange()`/`changeState()` がまさにその匂い）。
+## **1) Does `PRIMS(X)` define all “C primitives”?**
 
-つまり結論としては：
+As you said, typically this single list defines
 
-* **「Cで実装された“プリミティブ”は通常 PRIMS が中心」**
+* `X1(op,name,code) op,` → **enum listing of opcodes**
 
-* **でも `:` などが PRIMS に入っていない方式もあり得る（outer側の特別処理）**
+* `X2(op,name,code) case op: code` → ** The switch execution body for the inner interpreter**
 
-* **PRIMS 以外の“C関数”は、ワードではなく内部部品のことも多い**
+* `X3(op,name,code) { op, name, 0 },` → **The “opcode ↔ name” table (for dictionary initialization)**
 
----
+are generated.
 
-## **2\) `cf-boot.fth` や `disk.xf` は PRIMS に追加されるの？**
+Therefore, the design is often \*\*“List all primitives you want exposed as C words in PRIMS”\*\*.
 
-**追加されません。**  
- `PRIMS(X)` は **コンパイル時に固定**の「Cプリミティブ一覧」です。
+However, there are two important points to note.
 
-`cf-boot.fth` などの外部ファイルは、起動時に `boot()` → `cfOuter()` などを通して
+### **Note A: Some C functions are not “words”**
 
-* `:` 〜 `;` の **コロン定義**
+Auxiliary functions like `push/pop/findWord`, even if written in C, **are not Forth words**.
+Only those “registered in the dictionary and possessing a name” .
 
-* `constant` / `variable` 的な **高レベル定義**
+### **Caution B: Exceptions exist where words might be registered outside PRIMS**
 
-* `include` による追加ロード
+For example:
 
-といった形で \*\*辞書に新しいエントリ（DE\_T）を“動的に追加”\*\*します。
+* Directly calling `addWord()` to individually register “special words”
 
-つまり \*\*“PRIMSに追加”ではなく、“辞書メモリに追加”\*\*です。
+* Handling “state transitions” (`:` `;` `[` `]`) as special cases in the outer interpreter, not via PRIMS
 
----
+Such implementations exist (your mentioned ` isStateChange()`/`changeState()` you mentioned smacks of this).
 
-## **3\) じゃあ「CFのWORD」は PRIMS だけで全部なの？**
+In conclusion:
 
-**いいえ。**（たいていの場合）
+* **“Primitives” implemented in C are usually centered around PRIMS**
 
-* PRIMS \= 最小カーネル（`dup swap drop + -` みたいな基礎）
+* **But it's also possible for `:` etc. not to be in PRIMS (handled by special outer processing)**
 
-* `cf-boot.fth` \= その上に積む“標準っぽい語彙”や便利語（`2dup`, `over`, `.` の周辺、制御構造の糖衣など）
-
-* `disk.xf` \= 名前から推測すると、さらに語彙を増やすための \*\*“外部辞書イメージ/バイナリ形式”\*\*または **追加スクリプト**のどちらか（ここはあなたの cf 実装の実物次第）
-
-なので「ユーザーが使える全ワード」は通常
-
-**PRIMS（Cプリミティブ） \+ 起動時にロードしたForth定義（.fth 等） \+（あれば）辞書イメージ（.xf等）**
-
-の合成になります。
-
----
-
-## **4\) `disk.xf` は何をするもの？**
-
-手元の cf 実装を見ていないので断定は避けますが、よくあるパターンは2つです。
-
-1. **辞書の保存イメージ（高速起動）**  
-    いちいち `boot.fth` を解釈コンパイルし直さず、すでに構築済み辞書をロードする方式。
-
-2. **追加ワード群の“スクリプト”**（拡張Forthソース）  
-    拡張語彙をまとめてロードする。
-
-どちらでも **PRIMS に追加する**のではなく、**辞書領域を増やす/復元する**系です。
+* **“C functions” outside PRIMS often refer to internal components, not words**
 
 ---
 
-もし `disk.xf` の先頭数十バイト（ASCIIっぽい/バイナリっぽい）や、`boot()` の中で `disk.xf` をどう扱っているかのコード（fOpen/fReadしてる部分）を貼ってくれれば、「これは辞書イメージ方式か、Forthソース方式か」をはっきり判定して説明できます。
+## **2) Are `cf-boot.fth` and `disk.xf` added to PRIMS?**
 
-\#\# 私：
+**No, they are not added.** 
+`PRIMS(X)` is a **compile-time fixed** “list of C primitives”.
 
-void cfInit()の中のstruct { char \*nm; cell val; } nvp\[\]のCFで登録されたFORTHワード変数になるのでしょうか？これは最後が{ 0 ,0 }となっていることから、後から定義して増えていくものかと思います。
+External files like `cf-boot.fth` are loaded at startup via `boot()` → `cfOuter()`, etc.,
 
-\#\# ChatGPT：
+* **Colon definitions* for `:` to `;` *
 
-とても良い所に気づいています 👍  
- 結論から言うと、
+* **High-level definitions** like `constant` / `variable`
 
-\**`cfInit()` 内の*  
- *`struct { char *nm; cell val; } nvp[]` に書かれているものは、*  
- *「CF起動時に あらかじめ登録される FORTH の“変数・定数ワード”」です。*
+* Additional loading via `include`
 
-ただし  
- **「後から自動的に増えていく仕組み」ではありません。**  
- 増えるのは **辞書（DE\_T）側** で、`nvp[]` 自体は固定テーブルです。
+In this way, new entries (DE_T) are \*\*dynamically added to the dictionary*\*.
 
-以下、順を追って整理します。
+In other words, it is \*\*“adding to dictionary memory”, not “adding to PRIMS”\*\*.
 
 ---
 
-## **1️⃣ `nvp[]` は何者か？**
+## **3) So, are all “CF WORD” operations just PRIMS?**
 
-典型的には `cfInit()` の中に、こんな配列があります（簡略）：
+**No.** (In most cases)
 
-`static struct {`  
-    `char *nm;`  
-    `cell  val;`  
-`} nvp[] = {`  
-    `{ "base",   (cell)&base },`  
-    `{ "state",  (cell)&state },`  
-    `{ ">in",    (cell)&toIn },`  
-    `{ "here",   (cell)&here },`  
-    `{ "last",   (cell)&last },`  
-    `{ 0, 0 }`  
-`};`
+* PRIMS \= Minimal kernel (basics like `dup swap drop + -`)
 
-### **これは何か？**
+* `cf-boot.fth` \= “Standard-like vocabulary” and convenience words built on top (`2dup`, `over`, `.` surroundings, control structure sugar, etc.)
 
-👉 \*\*「C 側の変数（ポインタ）を、Forth から触れる“名前付きワード”として登録するための初期テーブル」\*\*です。
+* `disk.xf` \= Judging by the name, either a \*\*“external dictionary image/binary format”\*\* to expand the vocabulary further or **additional scripts** (this depends on your actual CF implementation)Therefore, the “total words available to the user” is typically**PRIMS (C primitives) \+ Forth definitions loaded at startup (.fth, etc.) \+ (if present) dictionary images (.xf, etc.)**combined.---## **4) What does `disk.xf` do?**I haven't examined your specific CF implementation, so I'll avoid making definitive statements, but there are two common patterns:1. **Dictionary storage image (fast startup)** A method that loads a pre-built dictionary instead of repeatedly interpreting and recompiling `boot.fth`.2. **A “script” of additional words** (extended Forth source)Loads a collection of extended vocabulary.In either case, it does not **add to PRIMS**, but rather **increases/restores dictionary space**.---If you could provide the first few dozen bytes of `disk.xf` (ASCII-like/binary-like) or the code within `boot()` that handles `disk.xf` (the part using fOpen/fRead), I can clearly determine and explain whether this is a dictionary image method or a Forth source method.## Me:`void cfInit()`'s `struct { char *nm; cell val; } nvp[]` ` in `void cfInit()` become FORTH word variables registered with `CF`? Given that it ends with `{ 0 ,0 }`, I suspect these are defined later and can grow.## ChatGPT:You've noticed a very good point 👍To conclude,\**The `struct { char *nm; cell val;` } nvp[]` within `cfInit()` is * *“FORTH ‘variable/constant words’ pre-registered at CF startup”.*However,**it is **not** a mechanism that automatically grows later.**Growth occurs **on the dictionary (DE_T) side**; `nvp[]` itself is a fixed table.Below, I'll organize this step by step.---## **1️⃣ What is `nvp[]`?**Typically, within `cfInit()`, you'll find an array like this (simplified):`static struct {` `char *nm;` `cell val;` `} nvp[] = {` `{ “base”, (cell) &base },` `{ “state”, (cell)&state },` `{ “>in”, (cell)&toIn },` `{ ‘here’, (cell)&here },` `{ “last”, (cell)&last },` `{ 0, 0 }` `};`
+### **What is this?**
+
+👉 \*\*This is the initial table for registering C-side variables (pointers) as “named words” accessible from Forth.
 
 ---
 
-## **2️⃣ CF/Forth から見ると、これは「変数ワード」？**
+## **2️⃣ From CF/Forth's perspective, is this a “variable word”?**
 
-はい、**Forth から見ると「変数ワード」になります。**
+Yes, **from Forth's perspective, it becomes a “variable word”.**
 
-たとえば：
+For example:
 
 `base`
 
-を実行すると、
+When executed,
 
-* `base` というワードが
+* The word `base`
 
-* **C の変数 `base` のアドレス**を
+* **Pushes the address of the C variable `base`**
 
-* **スタックに積む**
+* **onto the stack**
 
-という動作になります。
+This is the operation performed.
 
-つまり Forth 的には：
+In other words, from a Forth perspective:
 
-`base @      \ 現在の基数を読む`  
-`10 base !   \ 基数を10進にする`
+`base @ \ Read the current base`
+`10 base ! \ Set the base to decimal`
 
-が可能になるわけです。
+becomes possible.
 
-🔑 **重要ポイント**
+🔑 **Key Points**
 
-* `nvp[]` にあるのは「値」ではなく **“アドレス（ポインタ）”**
+* What `nvp[]` contains is not a “value” but **“an address (pointer)”**
 
-* だから `@` / `!` で C 側の変数と直結する
+* Therefore, `@` / `!` directly access the C-side variable
 
----
+-- -
 
-## **3️⃣ `nvp[]` の `{0,0}` は「後から増える」ため？**
+## **3️⃣ Why is `{0,0}` in `nvp[]` “added later”?**
 
-ここは **誤解しやすいポイント** ですが、
+This is a **point prone to misunderstanding**, but
 
-`{0,0}` は  
- **「後から増える」ためではなく、**  
- **「C の for ループで走査を止めるための終端マーカー」**
+`{0,0}` is
+**not “added later,” but rather**
+**a “termination marker to stop scanning in the C for loop.”**
 
-です。
+.
 
-典型コードはこんな感じです：
+Typical code looks like this:
 
-`for (i = 0; nvp[i].nm; i++) {`  
-    `addLit(nvp[i].nm, nvp[i].val);`  
+`for (i = 0; nvp[i].nm; i++) {`
+`addLit(nvp[i].nm, nvp[i].val);`
 `}`
 
-* `nm == 0` になったら終了
+* Terminates when `nm == 0`
 
-* **配列サイズを別に持たなくて済む**ための C の定番イディオム
+* A standard C idiom to **avoid holding the array size separately**
 
-➡ **`nvp[]` 自体は静的・固定**
+➡ **`nvp[]` itself is static and fixed**
 
 ---
 
-## **4️⃣ では「後から増える FORTH 変数」はどこへ？**
+## **4️⃣ So where do “later-increased FORTH variables” go?**
 
-**辞書（DE\_T）です。**
+**They go into the dictionary (DE\_T).**
 
-### **例**
+### **Example**
 
 `variable foo`
 
-を実行すると：
+When executed:
 
-* `addWord("foo")` が呼ばれ
+* `addWord(“foo”)` is called
 
-* 辞書に **新しい DE\_T** が追加され
+* A **new DE\_T** is added to the dictionary
 
-* メモリ上にセル領域が確保される
+* Cell space is allocated in memory
 
-これは：
+This:
 
-* `nvp[]` とは無関係
+* Is unrelated to `nvp[]`
 
-* 実行時にどんどん増える
+* Increases dynamically during execution
 
 ---
 
-## **5️⃣ `nvp[]` と `addLit()` の関係**
+## **5️⃣ Relationship Between `nvp[]` and `addLit()`**
 
-`cfInit()` ではたいていこうなっています：
+`cfInit()` typically looks like this:
 
-`for (i=0; nvp[i].nm; i++) {`  
-    `addLit(nvp[i].nm, nvp[i].val);`  
+`for (i=0; nvp[i].nm; i++) {` 
+`addLit(nvp[i].nm, nvp[i].val);` 
 `}`
 
-`addLit(name, val)` の意味は：
+The meaning of `addLit(name, val)` is:
 
-**「実行すると `val` をスタックに積むワードを作る」**
+**“Create a word that pushes `val` onto the stack when executed”**
 
-なので：
+Therefore:
 
-| nvp エントリ　　　 | Forthからの見え方 |
+| nvp entry　　　 | View from Forth |
 | ----- | ----- |
-| `{ "base", &base }` | `base` → C変数 base のアドレス |
-| `{ "here", &here }` | `here` → 辞書ポインタのアドレス |
-|  |  |
-|  |  |
-|  |  |
-|  |  |
+| `{ “base”, &base }` | `base` → Address of C variable base |
+| `{ “here”, &here }` | `here` → Address of dictionary pointer |
+| | |
+| | |
+| | |
+| | |
 
 ---
 
-## **6️⃣ 全体像（重要）**
+## **6️⃣ Big Picture (Important)
 
-`┌────────┐`  
-`│ PRIMS(X)    │  ← Cプリミティブ（dup, swap, +, …）`  
-`└────────┘`  
-        `│`  
-`┌────────┐`  
-`│ nvp[]       │  ← C変数をForthに公開（base, state, >in, here…）`  
-`└────────┘`  
-        `│`  
-`┌────────┐`  
-`│ boot.fth    │  ← 高レベルForth語彙（: ; if do loop …）`  
-`└────────┘`  
-        `│`  
-`┌─────────┐`  
-`│ user scripts  │ ← ユーザー定義`  
+`┌────────┐`
+`│ PRIMS(X) │ ← C primitives (dup, swap, +, …)` 
+`└────────┘` 
+`│` 
+`┌────────┐` 
+`│ nvp[] │ ← Exposes C variables to Forth (base, state, >in, here…)` 
+`└────────┘` 
+` │` 
+`┌────────┐` 
+`│ boot.fth │ ← High-level Forth vocabulary (: ; if do loop …)` 
+` └────────┘` 
+`│` 
+`┌─────────┐` 
+`│ user scripts │ ← User-defined` 
 `└─────────┘`
 
 ---
 
-## **7️⃣ まとめ（核心）**
+## **7️⃣ Summary (Core)**
 
-* ✅ `nvp[]` に書かれたものは **CF起動時に登録される FORTH の変数（または定数）**
+* ✅ Items written in `nvp[]` are **FORTH variables (or constants) registered at CF startup**
 
-* ❌ `nvp[]` 自体が後から増えることはない
+* ❌ `nvp[]` itself cannot be expanded later
 
-* ✅ 後から増えるのは **辞書（DE\_T）**
+* ✅ What can be expanded later is the **dictionary (DE\_T)**
 
-* 🔑 `{0,0}` は **配列終端マーカー**
+* 🔑 `{0,0}` is the **array termination marker**
 
-* 🔑 C のグローバル変数と Forth の `@ !` が **直結する設計**
+* 🔑 **Direct design link** between C global variables and Forth's `@ !`
 
 ---
 
-この構造を理解できているのは、  
- **Z80/MSX で CF を再構成するうえで「核心部分」を掴めている証拠**です。
+Understanding this structure is 
+**proof you grasp the core aspects** for reconstructing CF on Z80/MSX.
 
-次に進むなら、
+To proceed further,
 
-* `nvp[]` を **MSX-DOS 版 CF でどう表現するか**
+* How to represent `nvp[]` * *how to express `nvp[]` in the MSX-DOS version of CF**
 
-* `base/state/>in` を **Z80 側 RAM にどう割り当てるか**
+* **how to allocate `base/state/>in` in Z80-side RAM**
 
-* `addLit()` を **token-threaded VM の LIT にどう落とすか**
+* **how to translate `addLit()` into LITs for a token-threaded VM**
 
-このあたりが自然な次の一歩になります。
+## Me:
 
-では enum { STOP, LIT, JMP, JMPZ, NJMPZ, JMPNZ, NJMPNZ, PRIMS(X1) }; を教えてください。
+These areas are the natural next steps.
 
-\#\# ChatGPT：
+Then tell me `enum { STOP, LIT, J MP, JMPZ, NJMPZ, JMPNZ, NJMPNZ, PRIMS(X1) };`.
 
-では、この行を **CF の実行モデル（token-threaded VM）そのもの**として、噛み砕いて説明します。
+## ChatGPT:
+
+Let me break down this line as **the CF execution model (token-threaded VM) itself**.
 
 `enum { STOP, LIT, JMP, JMPZ, NJMPZ, JMPNZ, NJMPNZ, PRIMS(X1) };`
 
-これは **「CF 仮想マシンが理解できる“命令コード（opcode）一覧”」** を定義しています。
+This defines **“a list of opcodes the CF virtual machine can understand”**. *
 
 ---
 
-## **1️⃣ これは何を定義しているのか（1行要約）**
+## **1️⃣ What does this define (1-line summary)**
 
-**CF の inner interpreter（`cfInner()`）が `switch(op)` で処理する**  
- **“すべての命令コード（VM命令）”の番号表**
+**It's a number table for **“all instruction codes (VM instructions)”** that the CF inner interpreter (`cfInner()`) processes via `switch(op)`**
 
-です。
 
-Forth 的に言うと：
+In Forth terms:
 
-* **スレッドコード（compiled code）に並ぶ“トークン”の正体**
+* **The true nature of the “tokens” that appear in thread code (compiled code)**
 
-* **Z80 版で言えば `JP I_DUP` などに対応する番号**
+* **Numbers corresponding to things like `JP I_DUP` in the Z80 version**
 
 ---
 
-## **2️⃣ enum の前半：VM制御用の「特別命令」**
+## **2️⃣ The first half of the enum: “Special Instructions” for VM control**
 
-`STOP,     // 0`  
-`LIT,      // 1`  
-`JMP,      // 2`  
-`JMPZ,     // 3`  
-`NJMPZ,    // 4`  
-`JMPNZ,    // 5`  
-`NJMPNZ,   // 6`
+`STOP, // 0`
+`LIT, // 1`
+ 
+`JMP, // 2` 
+`JMPZ, // 3` 
+`NJMPZ, // 4` 
+`JMPNZ, // 5` 
+`NJMPNZ, // 6`
 
 ### **🔹 STOP**
 
-* **実行終了**
+* **Terminate execution**
 
-* `cfInner()` のループを抜けるための命令
+* Instruction to exit the `cfInner()` loop
 
-* コロン定義の最後やエラー脱出に使われる
+* Used at the end of colon definitions or for error escape
 
-Z80 VM なら：
+For Z80 VM:
 
-`I_STOP:`  
-    `ret`
+`I_STOP:` 
+`ret`
 
 ---
 
 ### **🔹 LIT**
 
-* **次のセルを即値として push**
+* **Push the next cell as an immediate value**
 
-* Forth の「数値リテラル」の核
+* Core of Forth's “numeric literals”
 
-コンパイル例：
+Compilation example:
 
 `123`
 
-→ スレッドコード：
+→ Thread code:
 
 `LIT 123`
 
@@ -885,9 +752,9 @@ Z80 VM なら：
 
 ### **🔹 JMP**
 
-* **無条件ジャンプ**
+* **Unconditional jump**
 
-* 制御構造の基礎（IF/BEGIN/AGAIN など）
+* Foundation of control structures (IF/BEGIN/AGAIN, etc.)
 
 `JMP addr`
 
@@ -895,151 +762,151 @@ Z80 VM なら：
 
 ### **🔹 JMPZ / JMPNZ**
 
-* **条件付きジャンプ**
+* **Conditional jump**
 
-* TOS を pop して判定する系
+* System that pops TOS for evaluation
 
-| 命令 | 意味 |
+| Instruction | Meaning |
 | ----- | ----- |
-| JMPZ | TOS \== 0 ならジャンプ |
-| JMPNZ | TOS \!= 0 ならジャンプ |
+| JMPZ | Jump if TOS \== 0 |
+| JMPNZ | Jump if TOS \!= 0 |
 
 ---
 
 ### **🔹 NJMPZ / NJMPNZ**
 
-* **“N”付きジャンプ（最適化用・省pop型が多い）**
+* **Jump with “N” (Optimization-focused, often skip-pop type)**
 
-* 実装により：
+* Implementation differences:
 
-  * pop しない
+* No pop
 
-  * NOT 条件
+* NOT condition
 
-  * next-token 前提
+* Requires next-token
 
-などの違いがあります。
+etc.
 
-👉 **MSX/Z80 版を作るなら、最初は無視してもよい命令群**です  
- （あとで最適化として入れる位置）
+👉 **If making an MSX/Z80 version, these are commands you can initially ignore**
+(Add later as optimization)
 
 ---
 
-## **3️⃣ 後半：`PRIMS(X1)` の正体**
+## **3️⃣ Later: The True Nature of `PRIMS(X1)`**
 
-ここが **Xマクロの核心**です。
+This is the **core of the X macro**.
 
-### **X1 の定義（あなたの前提）**
+### **Definition of X1 (Your Assumption)**
 
 `#define X1(op, name, code) op,`
 
-### **PRIMS(X1) 展開結果（例）**
+### **Expansion Result of PRIMS(X1) (Example)**
 
-`enum {`  
-    `STOP,`  
-    `LIT,`  
-    `JMP,`  
-    `JMPZ,`  
-    `NJMPZ,`  
-    `JMPNZ,`  
-    `NJMPNZ,`
+`enum {` 
+`STOP,` 
+`LIT,` 
+`JMP,`
+ 
+`JMPZ,` 
+`NJMPZ,` 
+`JMPNZ,` 
+`NJMPNZ,`
 
-    `DUP,`  
-    `SWAP,`  
-    `DROP,`  
-    `ADD,`  
-    `SUB,`  
-    `...`  
+`DUP,` 
+`SWAP,` 
+`DROP,` 
+`ADD,` 
+`SUB,` 
+`...` 
 `};`
 
-👉 **PRIMS に並んだ “すべての C プリミティブ” が opcode として enum に入る**
-
+👉 **The 
 ---
 
-## **4️⃣ なぜ enum なのか（設計意図）**
+## **4️⃣ Why enum? (Design Intent)**
 
-### **① スレッドコードが「整数列」になる**
+### **① Thread code becomes a “sequence of integers”**
 
-辞書に並ぶコードは：
+The code listed in the dictionary is:
 
 `[DUP][DUP][ADD][STOP]`
 
-→ 実体は：
+→ The actual implementation is:
 
 `int code[] = { DUP, DUP, ADD, STOP };`
 
-### **② inner interpreter が高速になる**
+### **② Faster inner interpreter**
 
-`switch (op) {`  
-    `case DUP:   ... break;`  
-    `case ADD:   ... break;`  
+`switch (op) {`
+`case DUP: ... break;`
+`case ADD: ... break;`
 `}`
 
-* Cコンパイラが jump table を作れる
+* C compiler can generate jump tables
 
-* 関数ポインタより軽い
+* Lighter than function pointers
 
-👉 **token-threaded VM の王道**
-
----
-
-## **5️⃣ PRIMS(X1) が「Cで書かれたワードすべて」か？**
-
-ここで重要な整理です。
-
-### **✅ PRIMS(X) に入るもの**
-
-* **Cで実装された “プリミティブワード”**
-
-* `dup swap drop + - emit key` など
-
-* **opcode を持つ**
-
-### **❌ PRIMS に入らないもの**
-
-* `:` `;` `[ ]` など **構文制御**
-
-* `variable constant` など **辞書操作語**
-
-* それらは：
-
-  * outer interpreter の特別処理
-
-  * あるいは boot.fth で定義
+👉 **The mainstream approach for token-threaded VMs**
 
 ---
 
-## **6️⃣ cf-boot.fth は enum を増やすのか？**
+## **5️⃣ Are PRIMS(X1) “all words written in C”?**
 
-**増やしません。**
+Here's a crucial clarification.
+
+### **✅ What belongs in PRIMS(X)**
+
+* **“Primitive words” implemented in C**
+
+* e.g., `dup swap drop + - emit key`
+
+* **Possess an opcode**
+
+### **❌ What does NOT belong in PRIMS**
+
+* **Syntax control words** like `:` `;` `[ ]` Syntax control**
+
+* Dictionary manipulation words like `variable constant`, etc.
+
+* These are:
+
+* Specially handled by the outer interpreter
+
+* Or defined in boot.fth
+
+---
+
+## **6️⃣ Does cf-boot.fth increase the enum?**
+
+**No, it does not.**
 
 `enum { … PRIMS(X1) };`
 
-は **Cコンパイル時に確定**。
+is **determined during C compilation**.
 
-`cf-boot.fth` は：
+`cf-boot.fth` only:
 
-* `:` を使って
+* uses `:` to
 
-* 既存 opcode（DUP, JMP, LIT など）を
+* rearrange existing opcodes (DUP, JMP, LIT, etc.)
 
-* **並べ直して新しいワードを作る**
+* **forming new words**
 
-だけです。
+only.
 
-👉 **新しい“語彙”は増えるが、新しい“命令”は増えない**
+👉 **New “vocabulary” increases, but no new “instructions” are added**
 
 ---
 
-## **7️⃣ Z80 / MSX 版に置き換えると**
+## **7️⃣ When replacing with the Z80 / MSX version**
 
-この enum はそのまま：
+This enum becomes directly:
 
-`CF VM の命令セット仕様書`
+`CF VM Instruction Set Specification`
 
-になります。
+.
 
-Z80 では：
+For Z80:
 
 | C enum | Z80 VM |
 | ----- | ----- |
@@ -1048,916 +915,713 @@ Z80 では：
 | JMP | I\_JMP |
 | STOP | I\_EXIT |
 
-あなたがやっている
+What you're doing
 
-8086 / C → Z80 マクロ化  
- token-threaded VM の再構築
+8086 / C → Z80 macro conversion
+Rebuilding the token-threaded VM
 
-に **完全に対応する設計**です。
+is a **fully compatible design**.
 
 ---
 
-## **8️⃣ まとめ（核心）**
+## **8️⃣ Summary (Core)**
 
 * `enum { STOP, LIT, JMP, …, PRIMS(X1) };`
 
-  * \= **CF 仮想マシンの命令セット**
+* \= **CF Virtual Machine Instruction Set**
 
-* 前半：制御命令（VM用）
+* First half: Control instructions (for VM)
 
-* 後半：PRIMS \= Cプリミティブ命令
+* Second half: PRIMS \= C primitive instructions
 
-* 外部 `.fth` は **命令を増やさず、並べ替えるだけ**
+* External `.fth` files **only rearrange instructions, not add new ones**
 
-* Z80/MSX 版では **そのまま opcode 表になる**
-
----
-
-次に自然に進むなら：
-
-* `switch(op)` の **`PRIMS(X2)` 展開**
-
-* `PRIMS(X3)` が **辞書初期化にどう使われるか**
-
-* `LIT / JMP / JMPZ` が **Forth の IF/DO/LOOP にどう対応するか**
-
-どれから行きますか？
-
-\#\# 私：
-
-色々教えいただいてありがとうございます。 まだ頭の中で整理中であります。今の私の理解では以下のようになります。正しいでしょうか？  
- 　・Cで記述されたCFのコアな部分では起動後に内容が追加されるのは定義されたスタック領域とワード変数だけである。  
- 　・Cで記述されたCFのコアな部分は通常は変更されず、外部の.fthだけが状況に合わせて修正されていく。
-
-\#\# ChatGPT：
-
-とても良い整理の仕方です。  
- 結論から言うと、\*\*あなたの理解は「本質的に正しい」\*\*です。  
- ただし、**1点だけ補足すると、より正確になります。**
-
-以下、「✔ 正しい点」「⚠ 補足するとより正確な点」に分けて説明します。
+* In Z80/MSX versions, they **become the opcode table directly**
 
 ---
+
+Next logical steps:
+
+* **Expanding `PRIMS(X2)`** in `switch(op)`
+
+* **How `PRIMS(X3)` is used for dictionary initialization**
+
+* **How `LIT / JMP / JMPZ` correspond to Forth's IF/DO/LOOP* *
+
+Which one should we tackle first?
+
+## Me:
+
+Thank you for all the explanations. I'm still organizing it in my head. My current understanding is as follows. Is this correct? 
+・In the core part of CF written in C, only the defined stack area and word variables have their contents added after startup.
+ 
+・The core part of CF written in C is typically unchanged; only the external .fth files are modified as needed.
+
+## ChatGPT:
+
+That's a very good way to organize it.
+To conclude, \*\*your understanding is “essentially correct”\*\*.
+However, **one additional point will make it more accurate.**
+
+Below, I'll explain by separating “✔ Correct points” and “⚠ Points that become more accurate with additional context”.
+
+- --
 
 ## **①**
 
-**Cで記述されたCFのコアな部分では**  
- **起動後に内容が追加されるのは**  
- **定義されたスタック領域とワード変数だけである。**
+**In the core part of the CF written in C,**
+**only the defined stack area and word variables**
+**have their contents added after startup.**
 
-### **✔ 本質的に正しい**
+### **✔ Essentially Correct**
 
-「Cで書かれた CF のコア」は、
+The “core of CF written in C” provides:
 
-* VMの命令セット（enum / PRIMS）
+* VM instruction set (enum / PRIMS)
 
-* スタック（DS / RS）
+* Stack (DS / RS)
 
-* 辞書領域（HERE, LAST）
+* Dictionary area (HERE, LAST)
 
-* 内側・外側インタプリタ
+* Inner/outer interpreters
 
-を提供するだけで、
+It provides only these,
 
-**起動後に“自動的に増えるC側の構造体”はありません。**
+**there are no “automatically growing C-side structures” after startup.**
 
-### **⚠ 補足（ここが1段深い理解）**
+### **⚠ Note (This is a deeper level of understanding)**
 
-正確には、**起動後に増えるのは：**
+To be precise, **what grows after startup is:**
 
-1. **辞書エントリ（DE\_T）**
+1. **Dictionary entries (DE_T)**
 
-   * `.fth` による `:` 定義
+* `:` definitions via `.fth`
 
-   * `variable`, `constant`
+* `variable`, `constant`
 
-2. **データ領域（HERE が進む）**
+2. **Data area (HERE advances)**
 
-   * コンパイルされたトークン列
+* Compiled token sequences
 
-   * 変数の確保領域
+* Variable allocation areas
 
-つまり、
+In other words,
 
-「スタック領域が増える」
+“The stack area grows”
 
-というよりは、
+is less accurate than
 
-**「辞書とその背後のメモリが増える」**
+** “the dictionary and its underlying memory grow”**is a more accurate description.🔑 The stack* does “expand and contract,” but* its “size or structure does not increase”Adding this point makes the explanation complete.---## **②****The core parts of CF written in C are typically unchanged,** ** only the external .fth files are modified as needed.**### **✔ This is completely correct (and at a philosophical level)**This is **the core of Forth/CF design philosophy**.* C side \= **immutable virtual machine*** `.fth` \= **mutable language/environment/application**This is the division of roles.### **Why is this design strong?*** The VM is **small and stable*** Language extensions are **handled by Forth itself*** During porting (Z80 / MSX / FPGA)* The C side (or ASM side) remains largely unchanged* `.fth` files can be reused👉 **The work you are currently doing****“mapping the C version of CF to Z80/MSX”****perfectly follows this philosophy.**---## **③ Organized in Diagram (Final Form)**`┌───────────────────────┐` `│ CF Core Written in C │ ← Typically Fixed` `│ │` `│ - VM Instructions (enum/PRIMS) │` `│ - Data/RS Stack │``│ - Dictionary Management │``│ - inner / outer │``└─────────┬─────────────┘``│``▼``┌──────────────────────┐``│ Things added at startup │``│ │` `│ - Variable words in nvp[] │` `│ - Definitions in boot.fth │` `│ - Included vocabulary │` `│ │` `│ → All added to dictionary │` `└─────────┬────────────┘` `│` `▼` `┌──────────────────────┐` `│ User-defined (.fth) │ ← Modified as needed` `│ │` `│ - New words │` `│ - Applications │` `│ - Experiments │` `└──────────── ─────────┘`---## **④ In a nutshell (your final understanding)****CF is** **“a system where Forth builds its own language and environment** **on top of a fixed VM written in C.”** **That's it.**This is already **the implementer's perspective**.---# # **Next Natural Questions (No Need to Answer Now)*** For the Z80/MSX version:**How much of the “C core equivalent” should be fixed?*** What is the minimal set of `PRIMS`?* How much can `boot.fth` be trimmed?* Where is the boundary between token-threaded and direct-threaded?Currently “under review,” so **Once this understanding clicks, we're already in the design phase.**No rush—this current review phase is very healthy.## Me: Looking at `system.c` and `cf.c` myself, I felt these files are a collection of temporary components shaping the FORTH system called `CF`. The true essence of `CF` only reveals itself when `main()` executes. Is this expression accurate? ## ChatGPT:Yes—That expression ** hits the nail on the head.**Moreover, it's not a “user perspective,” but **an implementer's understanding**.Let's refine it slightly for greater precision.---# **Your Expression**system.c and cf.c area collection of temporary components that form the FORTH system called CF,and the actual entity of CF only reveals itself when main() is executed.---# **Conclusion**✅ **Conceptually correct.**However,🔧 Rather than “temporary components,”👉 \*\*“static mechanisms”\*\* is even more precise.---# **Why this perception arises**## **1️⃣ Compile time**system.c / cf.c contain:* Instruction set (enum)* PRIMS* push/pop* inner interpreter* outer interpreter* dictionary management* stack areaare written.But at this point:* The dictionary is still empty* The stack is still empty* boot.fth hasn't been executed yet* There are no user-defined items👉 In other words, it's just the “engine” state.---## **2️⃣ The Moment main() is Called**`cfInit();``addLit(...);``boot(...);``while(1) repl();`Only now:* The dictionary is initialized* C primitives are registered* nvp\[\] is registered* boot.fth is loaded* colon definitions are generated* HERE advances* The actual language system is formed👉 **At this moment, “CF as Forth” finally boots up**---# **To go deeper**CF's essence is:`static code (C) + dynamic dictionary memory`combined.C code alone is still just “potential.”
+Forth is:
 
-がより正確な表現です。
+a language that assembles itself at runtime
 
-🔑 スタックは
+That's why you
 
-* “伸び縮み”はするが
+felt it “reveals itself when main() runs”
 
-* “サイズや構造が増える”わけではない
+.
 
-という点だけ補足しておくと完璧です。
-
----
-
-## **②**
-
-**Cで記述されたCFのコアな部分は通常は変更されず、**  
- **外部の.fthだけが状況に合わせて修正されていく。**
-
-### **✔ これは完全に正しい（しかも思想レベルで）**
-
-これは **Forth／CF設計思想の核心**です。
-
-* C側 \= **不変の仮想マシン**
-
-* `.fth` \= **可変の言語・環境・アプリ**
-
-という役割分担。
-
-### **なぜこの設計が強いか？**
-
-* VMは **小さく・安定**
-
-* 言語拡張は **Forth自身で行う**
-
-* 移植時（Z80 / MSX / FPGA）も
-
-  * C側（or ASM側）をほぼそのまま
-
-  * `.fth` を使い回せる
-
-👉 **あなたが今やっている**  
- **「C版CFをZ80/MSXに写像する」作業は**  
- **まさにこの思想を正しくなぞっています。**
+That's an extremely accurate intuition.
 
 ---
 
-## **③ 図で整理すると（最終形）**
+# **Put another way**
 
-`┌─────────────┐`  
-`│ Cで書かれたCFコア      │ ← 通常は固定`  
-`│                      │`  
-`│  - VM命令(enum/PRIMS)│`  
-`│  - データ/RSスタック   │`  
-`│  - 辞書管理           │`  
-`│  - inner / outer     │`  
-`└─────┬───────┘`  
-          `│`  
-          `▼`  
-`┌─────────────┐`  
-`│ 起動時に増えるもの      │`  
-`│                      │`  
-`│  - nvp[]の変数ワード   │`  
-`│  - boot.fth の定義    │`  
-`│  - includeされた語彙   │`  
-`│                      │`  
-`│ → すべて辞書に追加     │`  
-`└─────┬───────┘`  
-          `│`  
-          `▼`  
-`┌─────────────┐`  
-`│ ユーザー定義 (.fth)   │ ← 状況に応じて変更`  
-`│                     │`  
-`│  - 新しいワード       │`  
-`│  - アプリ            │`  
-`│  - 実験              │`  
-`└─────────────┘`
+system.c / cf.c is:
+
+`a structure`
+
+After main() executes:
+
+`a living system`
+
+Or, to put it more Forth-like:
+
+`static VM + dynamic dictionary = Forth`
 
 ---
 
-## **④ 一言で言うと（あなたの理解の完成形）**
+# **A deeper perspective (important)**
 
-**CFとは**  
- **「Cで書かれた固定VMの上に、**  
- **Forth自身が自分の言語と環境を積み上げていく系」**  
- **である。**
+Actually,
 
-これはもう **実装者の視点**です。
+CF's “body” isn't C code
 
----
+either.
 
-## **次に自然につながる問い（今は答えなくてOK）**
+The body is:
 
-* Z80/MSX 版では  
-   **どこまでを“Cコア相当”として固定にするか？**
+`Dictionary memory (a chain of threaded code)`
 
-* `PRIMS` の最小集合はどこか？
+.
 
-* `boot.fth` をどこまで削れるか？
+The inner interpreter is merely an execution engine.
 
-* token-threaded と direct-threaded の境界は？
+Even in the Z80 version you're building now,
 
-今は「整理中」とのことなので、  
- **この理解が腑に落ちたら、次はもう設計フェーズです。**
+* If C disappears
 
-焦らず、今の整理はとても健全です。
+* And it becomes Z80
 
-\#\# 私：
-
-自分でsystem.cとcf.cを眺めていて感じたことは、これらのsystem.cとcf.cはCFというFORTHシステムを形作る仮の部品の集合体であって、CFの実体はmain()が実行されたときにはじめて姿を見せると感じました。この表現は合っていますか？
-
-\#\# ChatGPT：
-
-はい――  
- その表現は **とても本質を突いています。**
-
-しかもそれは「ユーザー視点」ではなく、  
- **実装者視点の理解**です。
-
-少しだけ整理して、より正確な形にしてみましょう。
+As long as there's “a dictionary and a token sequence”
+That 
+becomes the core of CF.
 
 ---
 
-# **あなたの表現**
+# **Summary**
 
-system.c と cf.c は  
- CF という FORTH システムを形作る仮の部品の集合体であって、  
- CF の実体は main() が実行されたときに初めて姿を見せる。
+Your understanding is:
+
+✅ Conceptually correct
+✅ Correct at the implementation level
+✅ Aligns with Forth's philosophy
+
+To be more precise:
+
+CF is not a collection of C code, but rather
+ 
+---
+
+The view you currently see is not
+
+the “perspective of someone using Forth”
+\*\* but the “perspective of someone creating Forth”\*\*.
+
+You're in a very good place.
 
 ---
 
-# **結論**
+If you like, an interesting question to consider next:
 
-✅ **概念的には正しい。**  
- ただし、  
- 🔧 「仮の部品」というより  
- 👉 \*\*「静的な機構」\*\*と言うとさらに正確です。
+In the Z80/MSX version,
+where is the “moment equivalent to main()”?
+
+Finding the answer there
+will complete another layer of your VM design.
+
+## Me: 
+
+I considered “Where is the ‘main() equivalent moment’ in the Z80/MSX version?”, but it feels like a rather difficult question.
+If something tangible emerges from nothing tangible, it would truly become a compiler, but I don't think FORTH is like that. When CF starts up, it enters a state waiting for messages and input. From the inputted character string, either dictionary registration or execution occurs.
+ 
+When I was looking into FIG_FORTH, I found it strange that during startup, it went through “Initial Setup” → “ABORT” → “QUIT” and ended. However, it turns out that inside “QUIT” is an infinite loop. Within that loop, “Key Input” → ‘INTERPRET’ executes the WORD names or numeric values entered from the keyboard. If an error occurs, after the error handling completes, “QUIT” is executed, and it returns to waiting for key input (as if nothing had happened). It's incredibly clean, but the actual behavior is hard to grasp—it leaves me with a strange feeling. 
+
+## ChatGPT:
+
+That “strange feeling” is precisely **the core of Forth's startup model** . The flow you described for FIG-FORTH (initial setup → ABORT → QUIT, though QUIT contains an infinite loop) perfectly aligns with the idea of \*\*“a minimal execution mechanism always present, with the language built upon it”\*\* rather than “something material emerging from nothing.”
+
+In response to your question, for the Z80/MSX version, we transform the \*\*“main() equivalent moment”\*\* into a Forth-like “visible form.” --- ## **1) “main() equivalent moment” = “moment entering QUIT”** 
+---
+
+## **1) “The moment equivalent to main()” = Close to “the moment entering QUIT”**
+
+In the C version of CF, main is:
+
+1. `cfInit()` (The VM's foundation becomes operational)
+
+2. `boot()` ` (loads startup vocabulary to grow the dictionary)
+
+3. Runs `repl()` (waits for input → interprets → executes)
+
+That was it.
+
+In FIG-FORTH, this becomes:
+
+1. Initial setup (stack, dictionary pointer, I/O, variables)
+
+2. `ABORT` (prepares state, creates exception return point)
+
+3. `QUIT` (**enters infinite-loop interactive world**)
+
+.
+
+In other words,
+
+**In the Z80/MSX version, “the moment CF reveals itself” = the moment it first enters QUIT (or its equivalent outer loop) 
+.
+
+It feels less like “the compiler starts” and more like \*\*“an interactive loop that runs forever starts”\*\*.
 
 ---
 
-# **なぜその感覚が生まれるのか**
+## **2) The essence of “no entity → entity appears” is “the dictionary grows”**
 
-## **1️⃣ コンパイル時**
+Forth is less a compiler and more, simply put:
 
-system.c / cf.c には：
+* **What resides permanently:**
 
-* 命令セット（enum）
+* The stack
 
-* PRIMS
+* The inner interpreter (execution mechanism)
 
-* push/pop
+* The outer interpreter (splits input into words + finds and executes/compiles)
 
-* inner interpreter
+* The dictionary (initially small)
 
-* outer interpreter
+* **What “grows” after startup: **
 
-* 辞書管理
+* Dictionary (colon definitions, variables, constants, convenience words)
 
-* スタック領域
+This “growing dictionary” is what brings the \*\*“world of Forth”\*\* the user sees into existence.
 
-が書かれています。
+So what you call
 
-でもこの時点では：
+something appearing from nothing
 
-* 辞書はまだ空
+is more accurately
 
-* スタックはまだ空
+**a minimal core (VM) exists, and the dictionary growing brings the entity (language environment) into being**
 
-* boot.fthも未実行
-
-* ユーザー定義も無い
-
-👉 つまり「エンジンだけ」の状態です。
+.
 
 ---
 
-## **2️⃣ main() が呼ばれる瞬間**
+## **3) Why it appears to end with “ABORT → QUIT”**
 
-`cfInit();`  
-`addLit(...);`  
-`boot(...);`  
-`while(1) repl();`
+This is Forth's beauty (i.e., its trick). The actual process is:
 
-ここで初めて：
+* `ABORT` is the \*\*“reset the environment to its initial state”\*\* word
 
-* 辞書が初期化され
+* Empty the stack
 
-* Cプリミティブが登録され
+* Sets `state` to the interpreter
 
-* nvp\[\] が登録され
+* Sets `base` and `>in`
 
-* boot.fth が読み込まれ
+* Sets the **exception return point** (depending on implementation)
 
-* コロン定義が生成され
+* `QUIT` is the \*\*“enter interactive loop”\*\* word
 
-* HERE が進み
+* Input
 
-* 実際の言語体系が形成される
+* Interpret
 
-👉 **この瞬間に初めて「CFというForth」が立ち上がる**
+* OK
 
----
+* Then input again...
 
-# **もっと深く言うと**
+So, when an error occurs:
 
-CFの実体は：
+1. Error handling (displaying messages, etc.)
 
-`静的コード（C）＋ 動的辞書メモリ`
+2. Jump to “cleanup processing” equivalent to `ABORT`
 
-の合成体です。
+3. **Return to `QUIT` again**
 
-Cコードだけではまだ「可能性」に過ぎません。
+So, visually, it appears as:
 
-Forthは：
+Returning to input waiting as if nothing happened
 
-実行時に自分自身を組み立てる言語
+.
 
-だからあなたは
-
-「main()が走ったときに姿を見せる」
-
-と感じたわけです。
-
-それは非常に正確な直感です。
+This is designed so the “program never ends,” similar to an OS's main loop.
 
 ---
 
-# **別の言い方をすると**
+## **4) When ported to Z80/MSX, the “main equivalent” can be written like this**
 
-system.c / cf.c は：
+Translated into your MSX-DOS `.COM` world, it roughly becomes these stages:
 
-`構造体`
+### **(A) Initialization (= cfInit equivalent)**
 
-main() 実行後は：
+* Initialize SP/RS
 
-`生きたシステム`
+* Initialize variables (base/state/\>in/here/last, etc.)
 
-あるいはもっとForth的に言えば：
+* Register primitive dictionary (PRIMS equivalent)
 
-`静的なVM + 動的な辞書 = Forth`
+* Prepare screen/BDOS I/O
 
----
+### **(B) Boot (= boot / cf-boot.fth equivalent)**
 
-# **さらに一段深い視点（重要）**
+* If a boot script exists, load and interpret it
 
-実は、
+* For MSX-DOS, `OPEN/READ` and feed it to `cfOuter`
 
-CFの「本体」は Cコードではない
+* Or use built-in “minimal boot” to enable only `:` and `;`
 
-とも言えます。
+### **(C) QUIT Loop (= repl infinite loop)**
 
-本体は：
+* Wait for input (BDOS single-character input or line input)
 
-`辞書メモリ（threaded codeの連鎖）`
+* Tokenize
 
-です。
+* Dictionary lookup
 
-inner interpreter は単なる実行装置。
+* Execute or compile
 
-あなたが今作っている Z80 版でも、
+* If error, return via ABORT
 
-* Cが消えて
+* Wait for input again
 
-* Z80になっても
-
-「辞書とトークン列」があれば  
- それがCFの本体になります。
+✅ This (C) represents the “first moment you entered” – the very moment you felt \*\*“CF revealed itself”\*\*.
 
 ---
 
-# **まとめ**
+## **5) The True Nature of “It Feels Clean but Hard to Grasp”**
 
-あなたの理解は：
+The reason it's hard to grasp is simple:
 
-✅ 概念的に正しい  
- ✅ 実装レベルでも正しい  
- ✅ Forthの哲学にも合っている
+* C and general languages: main → a single path of function calls
 
-より正確に言うなら：
+* Forth: \*\*Always in the QUIT world (infinite loop)\*\*, and from there
 
-CFはCコードの集合体ではなく、  
- main() 実行時に構築される「動的辞書を持つ仮想機械」である。
+* Each time input arrives, the world changes a little (the dictionary grows)
 
----
+* Errors don't “crash with exceptions” but “return to the world's entrance”
 
-今あなたが見えている景色は、
+In other words, the program's ‘shape’ is
 
-「Forthを使っている人の視点」ではなく  
- \*\*「Forthを作っている人の視点」\*\*です。
+**not a “straight path” but a “ring”**
 
-とても良いところに来ています。
+.
 
 ---
 
-もしよければ次に考えると面白い問い：
+## **6) A super-short mnemonic for clear understanding**
 
-では Z80/MSX版で  
- 「main() に相当する瞬間」はどこか？
+* **CF's body \= Dictionary**
 
-そこに答えが出ると、  
- あなたのVM設計は一段完成します。
+* **CF's heart \= Inner interpreter**
 
-\#\# 私：
+* **CF's face \= QUIT (outer loop)**
 
-「では Z80/MSX版で 「main() に相当する瞬間」はどこか？」 考えてみましたが、かなりむつかしい問いかけに感じます。 実体がないものから実体が現れるとすると本当にコンパイラになってしまうのでしょうが、FORTHは違うと思います。CFが立ち上がるとメッセージと入力待ち状態になって、キー入力された文字列からは辞書の登録か実行が行われます。 FIG＿FORTHを調べていた時に、起動時に、「初期設定」→「ABORT」→「QUIT」と進んで終わってしまうのが不思議でした。ところが、実は「QUIT」の中は無限ループになっていて、その中で「キー入力」→「INTERPRET」でキーボードから入力されたWORD名や数値などが実行されていく。もしもエラーが発生すると、エラー処理の終わった後で「QUIT」が実行されて、（まるで何事も無かったのかのように）キー入力待ちに戻ってしまう。 すごくすっきりしているが、実際の動きがつかみにくい、不思議な感覚でいます。
+* **Error recovery \= ABORT → Return to QUIT**
 
-\#\# ChatGPT：
+- --
 
-その「不思議な感覚」、まさに **Forth の起動モデルの核心**です。あなたが書いた FIG-FORTH の流れ（初期設定→ABORT→QUIT、でも QUIT の中が無限ループ）は、\*\*“実体がないものから実体が現れる”というより「最小の実行機構が常駐していて、そこに言語が積み上がる」\*\*という発想にぴったり合っています。
-
-あなたの問いに答える形で、Z80/MSX 版での \*\*「main() に相当する瞬間」\*\*を、Forth らしく“見える形”に落とします。
-
----
-
-## **1\) 「main() に相当する瞬間」＝“QUIT に入る瞬間”に近い**
-
-C版 CF でいう main は：
-
-1. `cfInit()`（VMの基礎が動ける状態になる）
-
-2. `boot()`（起動語彙を読み込んで辞書が育つ）
-
-3. `repl()` を回す（入力待ち→解釈→実行）
-
-でしたね。
-
-FIG-FORTH ではこれが：
-
-1. 初期設定（スタック、辞書ポインタ、I/O、変数）
-
-2. `ABORT`（状態を整えて、例外復帰点を作って）
-
-3. `QUIT`（**無限ループの対話世界へ入る**）
-
-になる。
-
-つまり、
-
-**Z80/MSX 版で「CFが姿を見せる瞬間」＝最初に QUIT（あるいはそれ相当の外側ループ）に入る瞬間**
-
-です。
-
-“コンパイラが起動する”というより、\*\*「永遠に動き続ける対話ループが起動する」\*\*感じ。
-
----
-
-## **2\) 「実体がない → 実体が現れる」の正体は “辞書が育つ” こと**
-
-Forth はコンパイラというより、もっと素朴に言うと：
-
-* **常駐しているのは：**
-
-  * スタック
-
-  * 内側インタプリタ（実行機構）
-
-  * 外側インタプリタ（入力を単語に切る＋見つけて実行/コンパイル）
-
-  * 辞書（最初は小さい）
-
-* **起動後に「育つ」のは：**
-
-  * 辞書（コロン定義、変数、定数、便利語）
-
-この「辞書が育つ」ことで、ユーザーが見ている \*\*“Forthという世界”\*\*が立ち上がります。
-
-だからあなたの言う
-
-実体がないものから実体が現れる
-
-は、より正確には
-
-**最小の核（VM）があり、辞書が育つことで実体（言語環境）が現れる**
-
-です。
-
----
-
-## **3\) なぜ「ABORT → QUIT」で終わったように見えるのか**
-
-これは Forth の美しさ（＝トリック）で、実際はこうです：
-
-* `ABORT` は \*\*「環境を初期状態に戻す」\*\*ワード
-
-  * スタックを空に
-
-  * `state` をインタプリタに
-
-  * `base` や `>in` を整える
-
-  * **例外復帰先**を設定する（実装により）
-
-* `QUIT` は \*\*「対話ループに入る」\*\*ワード
-
-  * 入力
-
-  * interpret
-
-  * ok
-
-  * そしてまた入力…
-
-で、エラーが起きると：
-
-1. エラー処理（メッセージ表示など）
-
-2. `ABORT` と同等の“整える処理”へ飛ぶ
-
-3. **また `QUIT` に戻る**
-
-なので、見た目は
-
-何事もなかったように入力待ちへ復帰
-
-になります。
-
-これは「プログラムが終わらない」ための設計で、OS の main loop と同じです。
-
----
-
-## **4\) Z80/MSX版に落とすと「main相当」はこう書ける**
-
-あなたの MSX-DOS `.COM` の世界観に直すと、だいたいこういう段階になります：
-
-### **(A) 初期化（= cfInit 相当）**
-
-* SP/RS の初期化
-
-* 変数（base/state/\>in/here/last 等）の初期化
-
-* プリミティブ辞書の登録（PRIMS相当）
-
-* 画面/BDOS I/O の準備
-
-### **(B) ブート（= boot / cf-boot.fth 相当）**
-
-* もしブートスクリプトがあるなら読み込んで解釈
-
-  * MSX-DOS なら `OPEN/READ` して `cfOuter` に食わせる
-
-* あるいは「最小ブート」を内蔵して `:` や `;` 等だけ成立させる
-
-### **(C) QUIT ループ（= repl の無限ループ）**
-
-* 入力待ち（BDOSの1文字入力 or 行入力）
-
-* トークン化
-
-* 辞書探索
-
-* 実行 or コンパイル
-
-* エラーなら ABORT 的に戻す
-
-* また入力待ち
-
-✅ この (C) に “初めて入った瞬間” が、あなたが感じた \*\*「CFが姿を見せた瞬間」\*\*です。
-
----
-
-## **5\) 「すっきりしているが動きがつかみにくい」の正体**
-
-つかみにくさの原因はシンプルで、
-
-* Cや一般言語：main → 関数呼び出しの一本道
-
-* Forth：\*\*常に QUIT の世界（無限ループ）\*\*で、そこから
-
-  * 入力が来るたびに世界が少しずつ変わる（辞書が育つ）
-
-  * エラーも “例外で落ちる” のではなく “世界の入口に戻る”
-
-つまりプログラムの“形”が、
-
-**「一本道」ではなく「円環」**
-
-なんです。
-
----
-
-## **6\) すっきり理解するための超短い合言葉**
-
-* **CFの本体 \= 辞書**
-
-* **CFの心臓 \= inner interpreter**
-
-* **CFの顔 \= QUIT（外側ループ）**
-
-* **エラー復帰 \= ABORT → QUIT に戻る**
-
----
-
-もし、あなたの `forth_cf_msx_demo.asm` の現在の構造（start〜実行〜終了）を、この FIG-FORTH 的な
+If you map the current structure of your `forth_cf_msx_demo.asm` (start → execution → end) to this FIG-FORTH-like
 
 * INIT
 
 * ABORT
 
-* QUIT（無限ループ）
+* QUIT (infinite loop)
 
-に“対応づけ”して図にしてみましょうか。  
- Z80側で「QUITの内側（入力→INTERPRET）」を最小で作ると、急に全体が掴めるようになります。
+Let's map it to a diagram.
+If you minimize the “inside of QUIT (input → INTERPRET)” on the Z80 side, the whole thing suddenly becomes graspable.
 
-「いきなり全体を作り上げるにはどこから手を付ければいいのだろう？」と思っていました。対応付けした図を見せていただけますか？
+## Me:
+I was wondering, “Where should I start to build the whole thing from scratch?” Could you show me the mapped diagram?
 
-\#\# ChatGPT：
+# # ChatGPT:
 
-もちろん。ここでは **C版CF（system.c/cf.c）** と、あなたの **Z80/MSX-DOS .COM 版（forth\_cf\_msx\_demo.asm）** を、FIG-FORTH 的な
+Certainly. Here, we'll map the **C version of CF (system.c/cf.c)** and your **Z80/MSX-DOS .COM version (forth\_cf\_msx\_demo.asm)** as a 
 
-INIT → ABORT → QUIT（無限ループ）  
- （QUITの中で：KEY入力 → INTERPRET → 実行/コンパイル → ok → さらにKEY）
+INIT → ABORT → QUIT (infinite loop)
+(Within QUIT: KEY input → INTERPRET → Execute/Compile → ok → Further KEY)
 
-に **対応付けした図**として見せます。
+as a **mapping diagram**.
 
 ---
 
-## **対応付けの全体図（C版CF ⇔ Z80/MSX版）**
+## **Overall Mapping Diagram (C Version CF ⇔ Z80/MSX Version)**
 
-### **C版CF（mainが“儀式”をやる）**
+### **C Version CF (main performs the “ceremony”)**
 
-`main()`  
- `├─ cfInit()           … VMの核を初期化（スタック/辞書/PRIMS登録）`  
- `├─ addLit(arg...)     … 変数/定数ワードを追加（argc,arg0..）`  
- `├─ boot(file?)        … 起動スクリプト読み込み（boot.fth等）`  
- `└─ while(1) repl()    … REPL/QUITループ（入力→解釈→実行→ok）`
+`main()` 
+`├─ cfInit() … Initialize VM core (stack/dictionary/PRIMS registration)`
+ 
+`├─ addLit(arg...) … Adds variable/constant words (argc, arg0..)`
+`├─ boot(file?) … Loads startup script (e.g., boot.fth)`
+`└─ while(1) repl() … REPL/QUIT loop (input → interpretation → execution → ok)`
 
-### **Z80/MSX-DOS版（startが“儀式”をやる）**
+## # **Z80/MSX-DOS Version (start performs “ceremony”)**
 
-`ORG 0100h`  
+`ORG 0100h`
+ 
 `JP start`
 
-`start:`  
- `├─ INIT相当            … SP/RS/変数/辞書/HERE/LAST/PRIMS準備`  
- `├─ BOOT相当            … （任意）起動スクリプト相当を読む/内蔵する`  
- `└─ QUIT相当(loop):     … 無限ループ`  
-      `├─ KEY/ACCEPT      … 入力（1文字 or 1行）`  
-      `├─ INTERPRET       … トークン化→辞書探索→実行/コンパイル`  
-      `├─ ok表示          … プロンプト`  
-      `└─ エラー時ABORT   … 状態を整えてQUITへ戻る`
+`start:`
+`├─ INIT equivalent … Prepare SP/RS/variables/dictionary/HERE/LAST/PRIMS`
+`├─ BOOT equivalent … (Optional) Read/embed startup script equivalent` 
+`└─ QUIT equivalent(loop): … Infinite loop` 
+`├─ KEY/ACCEPT … Input (1 character or 1 line)`
+ 
+`├─ INTERPRET … Tokenize → Dictionary lookup → Execute/Compile` 
+`├─ Display ok … Prompt` 
+`└─ ABORT on error … Restore state and return to QUIT`
 
 ---
 
-## **FIG-FORTHの「INIT→ABORT→QUIT」を“機能”で分解した対応図**
+## **FIG-FORTH's “INIT→ABORT→QUIT” Decomposed by Functionality**
 
-ここが肝です。FIG-FORTHを「何をしているか」で割ると、Z80でも作りやすくなります。
+This is the key. Breaking down FIG-FORTH by “what it does” makes it easier to implement even on Z80.
 
-`【INIT】（一度だけ）`  
-  `- データスタック初期化`  
-  `- リターンスタック初期化`  
-  `- 変数初期化（BASE, STATE, >IN, HERE, LAST…）`  
-  `- 辞書の最初の形を作る（PRIMS登録/ヘッダ構造準備）`  
-  `- I/O初期化（BDOS/表示/キー入力）`
+`【INIT】 (Once only)`
+`- Initialize data stack`
+`- Initialize return stack`
+`- Initialize variables (BASE, STATE, >IN, HERE, LAST…)`
+`- Create initial dictionary state (register PRIMS/prepare header structure)`
+`- Initialize I/O (BDOS/display/ key input)`
 
-        `↓`
+`↓`
 
-`【ABORT】（いつでも呼ばれる“復帰儀式”）`  
-  `- データスタックを空に`  
-  `- STATEをインタプリタへ`  
-  `- >INを0へ`  
-  `- 必要ならエラーメッセージを表示`  
-  `- （例外復帰点があればそこへ）`
+`【ABORT】 (Called anytime, “return ritual”)`
+`- Empty data stack`
+`- Set STATE to interpreter`
+`- Set >IN to 0`
+`- Display error message if necessary`
+`- (If there's an exception return point, go there)`
 
-        `↓`
+`↓`
 
-`【QUIT】（無限ループ）`  
-  `loop:`  
-    `- 入力を得る（ACCEPT/KEY）`  
-    `- INTERPRET（単語→見つける→実行 or コンパイル）`  
-    `- ok を出す`  
-    `- goto loop`
+`【QUIT】 (Infinite Loop)`
+`loop:`
+`- Get input (ACCEPT/KEY)`
+`- INTERPRET (word → find → execute or compile)`
+`- Output ok`
+` - goto loop`
 
-\*\*Z80/MSX版の “main相当の瞬間” は、この QUIT loop に「最初に入った瞬間」\*\*です。
-
----
-
-## **もう一段具体化：Z80/MSX .COM の「箱割り図」**
-
-あなたの `forth_cf_msx_demo.asm` を、次の “箱” に分けると、どこから作るべきかが見えます。
-
-`┌───────────────────┐`  
-`│ [A] start / INIT               │  ← cfInit相当`  
-`│   - SP/RS設定                   │`  
-`│   - 変数領域初期化              │`  
-`│   - 辞書初期化(HERE/LAST)       │`  
-`│   - PRIMSテーブル登録           │`  
-`│   - 画面に起動メッセージ         │`  
-`└─────────┬────────┘`  
-                `│`  
-`┌─────────▼─────────┐`  
-`│ [B] ABORT（復帰ルーチン）        │`  
-`│   - DSを空に / STATE=0          │`  
-`│   - >IN=0 / エラーなら表示       │`  
-`│   - QUITへジャンプ              │`  
-`└───────────────────┘`  
-                `│`  
-`┌─────────▼─────────┐`  
-`│ [C] QUIT（外側ループ）           │ ← repl相当`  
-`│   loop:                        │`  
-`│     - ACCEPT/KEYで入力取得       │`  
-`│     - INTERPRET                 │ ← cfOuter相当`  
-`│     - ok表示                    │`  
-`│     - JP loop                   │`  
-`└─────────┬──────────┘`  
-                `│`  
-`┌─────────▼──────────┐`  
-`│ [D] INTERPRET（外側インタプリタ）   │ ← cfOuter`  
-`│   - nextWord（単語切り出し）       │`  
-`│   - findWord（辞書探索）          │`  
-`│   - stateで分岐：                 │`  
-`│      * 実行: executeWord         │`  
-`│      * compile: compileWord/LIT  │`  
-`│   - 数値なら LIT or push          │`  
-`└─────────┬──────────┘`  
-                `│`  
-`┌─────────▼─────────┐`  
-`│ [E] INNER（内側インタプリタ）     │ ← cfInner`  
-`│   - token列を実行（switch相当）   │`  
-`│   - PRIMS（dup/swap/drop等）    │`  
-`│   - STOPで復帰                  │`  
-`└───────────────────┘`
+\*\*The “main equivalent moment” for the Z80/MSX version is the “first entry moment” into this QUIT loop\*\*.
 
 ---
 
-## **「どこから手を付けるべきか？」の実装順（迷いに効く順番）**
+## **Further concretization: Z80/MSX .COM “box diagram”**
 
-全体を一気に作らず、\*\*“動く最小環”\*\*を先に作ると不思議が消えます。
+Breaking down your `forth_cf_msx_demo.asm` into the following “boxes” reveals where to start building.
 
-### **ステップ1：QUITの骨格だけ作る（入力→エコー）**
-
-* BDOSで1文字読み、1文字出す（echo）
-
-* これで **「待って戻る」ループ**が手に入ります  
-   （= QUITの雰囲気が出る）
-
-### **ステップ2：nextWord相当（単語に切る）**
-
-* スペース区切りで単語を拾う（tibと\>in）
-
-* まだ辞書無しでOK
-
-### **ステップ3：最小辞書（数語だけ）＋ findWord**
-
-* `dup` `drop` `.` みたいな数語だけ
-
-* 見つかったら「識別できた」と表示するだけでもOK
-
-### **ステップ4：innerを繋ぐ（token実行）**
-
-* ここで初めて `PRIMS` と `cfInner` 相当が意味を持つ
-
-* “辞書エントリ→実行コード”が流れ出す
-
-### **ステップ5：ABORTを入れる**
-
-* エラーでも **必ずQUITに戻る**
-
-* あの「何事もなかったように戻る」体験が完成します
-
----
-
-## **ひとことで言うと**
-
-あなたが感じている「不思議さ」は、
-
-**“一本道のプログラム”ではなく、**  
- **“入口（QUIT）に常に戻る世界”**
-
-だからです。
-
-そして Z80/MSX版では、
-
-**QUIT loop を先に作ると、全体が急に掴める**
-
-ようになります。
+`┌────────────────────────────────┐`
+`│ [A] start / INIT │ ← Equivalent to cfInit`
+`│ - SP/RS setup │`
+`│ - Initialize variable area │` 
+`│ - Initialize dictionary (HERE/LAST) │` 
+`│ - Register PRIMS table │` 
+`│ - Display startup message │` 
+`└───────────────┬────────────────┘` 
+`│` 
+`┌───────────────▼────────── ──────┐` 
+`│ [B] ABORT (Resume Routine) │` 
+`│ - Clear DS / STATE=0 │` 
+`│ - >IN=0 / Display if error │` 
+`│ - Jump to QUIT │` 
+`└────────────────────── ──────────┘` 
+`│` 
+`┌───────────────▼────────────────┐` 
+`│ [C] QUIT (Outer Loop) │ ← equivalent to repl` 
+`│ loop: │`
+ 
+`│ - Get input via ACCEPT/KEY │`
+`│ - INTERPRET │ ← equivalent to cfOuter`
+`│ - Display ok │`
+`│ - JP loop │`
+`└───────────────┬────────────────┘`
+`│`
+`┌───────────────▼──── ──────────────┐` 
+`│ [D] INTERPRET (Outer Interpreter) │ ← cfOuter` 
+`│ - nextWord (Word Extraction) │` 
+`│ - findWord (Dictionary Lookup) │` 
+`│ - Branch based on state: │` 
+`│ * Execute: executeWord │`
+ 
+`│ * compile: compileWord/LIT │`
+`│ - If numeric, LIT or push │`
+`└───────────────┬──────────────────┘`
+`│`
+`┌───────────────▼─────────── ──────┐` 
+`│ [E] INNER (Inner Interpreter) │ ← cfInner` 
+`│ - Execute token sequence (equivalent to switch) │` 
+`│ - PRIMS (dup/swap/drop, etc.) │` 
+`│ - Resume at STOP │` 
+`└────────────────────────────────┘`
 
 ---
 
-もしよければ、あなたの `forth_cf_msx_demo.asm` の現在のラベル構成（start 以降の主要ラベル名だけでOK）を貼ってください。  
- この図の \[A\]〜\[E\] を \*\*あなたの実ファイルのラベルに直接対応付けた“あなた専用の図”\*\*にして返します。
+## **Implementation Order for “Where to Start?” (Order to Reduce Confusion)**
 
-\#\# 私：
+Instead of building the whole thing at once, creating the \*\*“minimum functional loop”\*\* first makes the mystery disappear.
 
-その前に質問ですが、私がFIG-FORTHを調べて理解した「ABORT」→「QUIT」の流れですが、CFではその部分はどのような構造になっているのでしょうか？
+### **Step 1: Build Only the QUIT Skeleton (Input → Echo)**
 
-\#\# ChatGPT：
+* Read one character with BDOS, output one character (echo)
 
-いい質問です。あなたの FIG-FORTH の理解（**ABORT → QUIT** で“何事もなかったように入力待ちへ戻る”）は、CFでも **ほぼ同じ思想**で実現されています。ただし CF は FIG-FORTH のように「ABORT というワード名」が前面に出るというより、**C 側の構造（repl/cfOuter の戻り方）として ABORT/QUIT 相当を作っている**ことが多いです。
+* This gives you the **“wait and return” loop**
+(= captures the feel of QUIT)
 
-あなたが貼ってくれた CF の `main()` から見える範囲だけで、対応関係をまとめます（※手元にあなたの実 `repl()` / `cfOuter()` の中身が無いので、ここは CF 系で典型の構造として説明します。違いがあれば、該当関数を貼ってくれれば「あなたのCFの実装そのもの」に即して描き直せます）。
+### **Step 2: Implement nextWord equivalent (split into words)**
 
----
+* Pick up words separated by spaces (tib and \>in)
 
-## **CFでの「QUIT 相当」はどこ？**
+* No dictionary needed yet
 
-CFでは **`while(1){ repl(); }`** が、ほぼそのまま \*\*QUIT（外側ループ）\*\*です。
+### **Step 3: Minimal dictionary (just a few words) + findWord**
 
-* FIG-FORTH: `QUIT` \= 無限ループで「入力→INTERPRET→また入力」
+* Just a few words like `dup` `drop` `.`
 
-* CF: `main()` の無限ループ \+ `repl()` がそれを担当
+* If found, just display “Identified”
 
-イメージ：
+### **Step 4: Connect inner (execute token)**
 
-`main:`  
-  `cfInit()`  
-  `boot(...)`  
-  `while(1) repl()    ← これが QUIT世界（外側ループ）`
+* Here, `PRIMS` and `cfInner` equivalents finally gain meaning
 
-`repl()` の中でだいたいこういうことをやります：
+* The flow “dictionary entry → execution code” begins
 
-1. 入力を `tib` に入れる（ACCEPT 相当）
+### **Step 5: Add ABORT**
 
-2. `cfOuter(tib)` を呼ぶ（INTERPRET 相当）
+* Even on error, **always return to QUIT**
 
-3. `ok` を出す
-
-4. 戻る（main の while がまた repl を呼ぶ）
+* This completes that experience of “returning as if nothing happened”
 
 ---
 
-## **CFでの「ABORT 相当」はどこ？**
+## **In a nutshell**
 
-CF の ABORT 相当は、普通は「1つの関数名」ではなく、**2層**に分かれて現れます。
+The ‘mystery’ you feel comes from
 
-### **レベル1：軽いABORT（状態を整えて続行）**
+**not a “linear program,” but** 
+**a “world that always returns to the entrance (QUIT)”**
 
-`repl()` が **毎回の入力の前後**で、
+.
 
-* スタックを整える（空にする、あるいは underflow を回復）
+And in the Z80/MSX version,
 
-* `state=0`（インタプリタモード）
+**creating the QUIT loop first makes the whole thing suddenly click**
+
+.
+
+---
+
+If you're willing, please post the current label structure of your `forth_cf_msx_demo.asm` (just the main label names after start is fine).
+ I'll return a \*\*custom diagram for you*\* directly mapping \[A\] to \[E\] in this diagram to the labels in your actual file.
+ 
+
+## Me:
+
+Before that, a question: I've researched and understood the “ABORT” → “QUIT” flow in FIG-FORTH. How is that part structured in CF? 
+
+## ChatGPT:
+
+Good question. Your understanding of FIG-FORTH (**ABORT → QUIT** meaning “return to input waiting as if nothing happened”) is implemented in CF with **almost the same philosophy**. However, rather than prominently featuring a “word named ABORT” like FIG-FORTH, CF ** C-side structure (how repl/cfOuter returns) to implement the equivalent of ABORT/QUIT**. 
+
+Based solely on what's visible in the CF `main()` you shared, I'll summarize the correspondence (※ Since I don't have your actual `repl()` / `cfOuter()` code on hand, I'll explain using a typical CF-style structure here. If there are differences, please share the relevant function, and I can redraw it based on your actual CF implementation).
+
+- --
+
+## **Where is the “QUIT equivalent” in CF?**
+
+In CF, **`while(1){ repl(); }`** is almost directly equivalent to \*\* QUIT (outer loop) \*\*.
+
+* FIG-FORTH: `QUIT` \= infinite loop performing “input → INTERPRET → more input”
+
+* CF: `main()`'s infinite loop \+ `repl()` handles this
+
+Image:
+
+`main:` 
+`cfInit()` 
+`boot(...)` 
+`while(1) repl() ← This is the QUIT world (outer loop)`
+
+Inside `repl()`, it generally does these things:
+
+1. Puts input into `tib` (equivalent to ACCEPT)
+
+2. Call `cfOuter(tib)` (equivalent to INTERPRET)
+
+3. Output `ok`
+
+4. Return (main's while loop calls repl again)
+
+---
+
+## **Where is the “ABORT equivalent” in CF?* *
+
+In CF, the equivalent of ABORT typically appears not as a single function name, but in **two layers**.
+
+### **Level 1: Lightweight ABORT (reset state and continue)**
+
+`repl()` performs the following **before and after each input**:
+
+* Reset the stack (empty it or recover from underflow)
+
+* `state=0` (interpreter mode)
 
 * `>in=0`
 
-* 途中コンパイルを破棄（必要なら）
+* Discard partial compilation (if necessary)
 
-みたいな“復帰処理”を入れて、**次の入力待ちに戻す**。
+It performs this kind of “restoration process” and **returns to waiting for the next input**.
 
-これは FIG-FORTH の ABORT がやる仕事と同じです。
+This is the same job as FIG-FORTH's ABORT does.
 
-### **レベル2：強いABORT（例外脱出）**
+### **Level 2: Strong ABORT (Exception Escape)**
 
-CF実装によっては、エラー時に
+Depending on the CF implementation, when an error occurs,
 
 * `setjmp/longjmp`
 
-* あるいは `cfOuter()` がエラーコードを返して `repl()` が復帰処理へ
+* or `cfOuter()` returns an error code and `repl()` proceeds to the recovery process
 
-のどちらかで、**深い入れ子（実行中）から一気に REPL へ戻る**構造を持つことがあります。
+either way, it can have a structure that **immediately returns to the REPL from deep nesting (during execution)**.
 
-FIG-FORTH の “ABORT が QUIT に戻る” の「戻り方」に近いのは、この強いABORTです。
+This strong ABORT is closer to the “return method” of FIG-FORTH's “ABORT returning to QUIT”.
 
 ---
 
-## **CFを FIG-FORTH の ABORT→QUIT に対応させると**
+## **Mapping CF to FIG-FORTH's ABORT→QUIT**
 
-あなたのCFは、見えている関数名だけで対応付けるとこうです：
+Your CF, mapped by visible function names alone, looks like this:
 
 ### **FIG-FORTH**
 
-`INIT → ABORT → QUIT(無限)`  
-              `└─ ACCEPT → INTERPRET → …`
+`INIT → ABORT → QUIT(infinite)` 
+`└─ ACCEPT → INTERPRET → …`
 
 ### **CF**
 
-`cfInit → boot → mainのwhile(1) { repl(); }`  
-                        `└─ (ACCEPT) → cfOuter(tib) → …`  
-                              `└─ エラーなら（ABORT相当の復帰処理）`
+`cfInit → boot → main's while(1) { repl(); }` 
+`└─ (ACCEPT) → cfOuter(tib) → …` 
+`└─ If error (equivalent to ABORT recovery handling)`
 
-つまり CF では、
+In other words, for CF,
 
-* **QUIT \= main の while \+ repl**
+* **QUIT ≠ main's while loop + repl**
 
-* **INTERPRET \= cfOuter**
+* **INTERPRET ≠ cfOuter**
 
-* **ABORT \= repl（または cfOuter）のエラー復帰処理**
+* **ABORT ≠ error recovery from repl (or cfOuter)**
 
-になっている、という理解がいちばんスッキリします。
-
----
-
-## **「何事もなかったように戻る」感じは CF でも出る？**
-
-出ます。理由も同じです。
-
-* エラーは「プロセス終了」ではなく「対話ループへ戻る」ために設計されている
-
-* 結果として、ユーザーは *次の入力待ち（ok）* をまた見る
-
-ただし、CFの実装によっては FIG-FORTH ほど“ABORTという儀式感”が表に出ず、
-
-* `cfOuter()` がエラー表示して return
-
-* `repl()` が ok を出して次へ
-
-のように、**Cの制御構造として自然に見える**形になっていることが多いです。
+is the clearest way to understand it.
 
 ---
 
-## **ここから先を「あなたのCFの実装そのもの」で確定させるには**
+## ** Does CF also give that “return as if nothing happened” feeling?**
 
-次のどちらか（できれば両方）の中身を、短くでいいので貼ってください：
+Yes. The reasons are the same.
 
-* `void repl()` の中身
+* Errors are designed to “return to the interactive loop” rather than “terminate the process”
 
-* `void cfOuter(const char *src)` の中身（特にエラー時の処理）
+* Consequently, the user sees *the next input prompt (ok)* again
 
-そうすれば、
+However, depending on the CF implementation, the “ceremonial feel of ABORT” may not be as prominent as in FIG-FORTH.
 
-* CFの「ABORT相当」が **どの変数をリセットしているか**
+* `cfOuter()` displays the error and returns
 
-* エラー脱出が **return型か longjmp型か**
+* `repl()` outputs ok and proceeds to the next input
 
-* “compile中のエラー” がどう復帰するか
+This often results in a form that **appears natural as C control structures**.
 
-を、FIG-FORTHの ABORT/QUIT と **1対1対応の図**で確定版として描けます。
+---
 
-\[ トップに戻る\](README.md)  
+## **To confirm the following as “your CF implementation itself” 
+Please paste the contents of one or both of the following (preferably both), even if brief:
 
+* The contents of `void repl()`
+
+* The contents of `void cfOuter(const char *src)` (especially error handling)
+
+This will clarify:
+
+* **Which variables CF's “ABORT equivalent” resets**
+
+* whether error recovery uses **return type or longjmp type**
+
+* how “compile-time errors” recover
+
+can be finalized in a **one-to-one correspondence diagram** with FIG-FORTH's ABORT/QUIT.
+
+[ Back to Top](README.md) 
+
+[ Back to Top](README.md)

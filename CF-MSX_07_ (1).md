@@ -3,7 +3,7 @@
 # 私：
 
 ~~~  
-forth\_cf\_msx\_demo.asmの次のステップに移る前にsystem.cの整理がしたいです。次の１）２）を教えてもらえますか？  
+forth_cf_msx_demo.asmの次のステップに移る前にsystem.cの整理がしたいです。次の１）２）を教えてもらえますか？  
 　１）system.c内部の関数の役割の説明リスト  
 　２）main関数の内部構造と処理の進行手順  
   
@@ -33,7 +33,7 @@ forth\_cf\_msx\_demo.asmの次のステップに移る前にsystem.cの整理が
  　　  tib[3] = '0' + i;   
  　　　addLit(tib, (cell)argv[i]);   
  　　　}   
- 　　boot((1\<argc) ? argv[1] : 0);   
+ 　　boot((1<argc) ? argv[1] : 0);   
  　　while (1) { repl(); }   
  　　return 0;   
  　}  

@@ -1,38 +1,38 @@
 ## 私：
-`forth_cf_msx_demo.asmの次のステップに移る前にsystem.cの整理がしたいです。次の１）２）を教えてもらえますか？`
-　`１）system.c内部の関数の役割の説明リスト`
-　`２）main関数の内部構造と処理の進行手順`
-
- `◎system.c内部の関数`
- 　 `void ttyMode(int isRaw)` 
- 　 `int qKey()` 
- 　 `int key()` 
- 　 `void ms(cell sleepForMS)` 
- 　 `cell timer()` 
- 　 `void zType(const char* str)` 
- 　 `void emit(const char ch)` 
- 　 `cell fOpen(cell name, cell mode)` 
- 　 `void fClose(cell fh) { fclose((FILE*)fh); }` 
- 　 `cell fRead(cell buf, cell sz, cell fh)` 
- 　 `cell fWrite(cell buf, cell sz, cell fh)` 
- 　 `cell fSeek(cell fh, cell offset)` 
- 　 `char tib[256];` 
- 　 `void repl()` 
- 　 `void boot(const char *fn)` 
- 
- `◎main関数` 
- 　`int main(int argc, char *argv[]) {` 
- 　　`cfInit();` 
- 　　`addLit("argc", (cell)argc);` 
- 　　`strcpy(tib, "argX");` 
- 　　`for (int i=0; (i<argc) && (i<10); i++) {` 
- 　　　`tib[3] = '0' + i;` 
- 　　　`addLit(tib, (cell)argv[i]);` 
- 　　　`}` 
- 　　`boot((1<argc) ? argv[1] : 0);` 
- 　　`while (1) { repl(); }` 
- 　　`return 0;` 
- 　`}`
+`forth_cf_msx_demo.asmの次のステップに移る前にsystem.cの整理がしたいです。次の１）２）を教えてもらえますか？`  
+　`１）system.c内部の関数の役割の説明リスト`  
+　`２）main関数の内部構造と処理の進行手順`  
+  
+ `◎system.c内部の関数`  
+ 　 `void ttyMode(int isRaw)`   
+ 　 `int qKey()`   
+ 　 `int key()`   
+ 　 `void ms(cell sleepForMS)`   
+ 　 `cell timer()`   
+ 　 `void zType(const char* str)`   
+ 　 `void emit(const char ch)`   
+ 　 `cell fOpen(cell name, cell mode)`   
+ 　 `void fClose(cell fh) { fclose((FILE*)fh); }`   
+ 　 `cell fRead(cell buf, cell sz, cell fh)`   
+ 　 `cell fWrite(cell buf, cell sz, cell fh)`   
+ 　 `cell fSeek(cell fh, cell offset)`   
+ 　 `char tib[256];`   
+ 　 `void repl()`   
+ 　 `void boot(const char *fn)`   
+   
+ `◎main関数`   
+ 　`int main(int argc, char *argv[]) {`   
+ 　　`cfInit();`   
+ 　　`addLit("argc", (cell)argc);`   
+ 　　`strcpy(tib, "argX");`   
+ 　　`for (int i=0; (i<argc) && (i<10); i++) {`   
+ 　　　`tib[3] = '0' + i;`   
+ 　　　`addLit(tib, (cell)argv[i]);`   
+ 　　　`}`   
+ 　　`boot((1<argc) ? argv[1] : 0);`   
+ 　　`while (1) { repl(); }`   
+ 　　`return 0;`   
+ 　`}`  
 
 以下、提示してくれた `system.c` の関数群と `main()` について、「何のためにあるか」「VM/REPLのどこで使われるか」が見えるように整理して説明します（forth-dwc / cf 系の“最小OS層”としての system.c という前提で書きます）。
 

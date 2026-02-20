@@ -2,45 +2,45 @@
 
 # 私：
 
-\~\~\~  
-\`forth\_cf\_msx\_demo.asmの次のステップに移る前にsystem.cの整理がしたいです。次の１）２）を教えてもらえますか？\`  
-　\`１）system.c内部の関数の役割の説明リスト\`  
-　\`２）main関数の内部構造と処理の進行手順\`
+~~~  
+forth\_cf\_msx\_demo.asmの次のステップに移る前にsystem.cの整理がしたいです。次の１）２）を教えてもらえますか？\`  
+　１）system.c内部の関数の役割の説明リスト\`  
+　２）main関数の内部構造と処理の進行手順\`
 
- \`◎system.c内部の関数\`  
- 　 \`void ttyMode(int isRaw)\`   
- 　 \`int qKey()\`   
- 　 \`int key()\`   
- 　 \`void ms(cell sleepForMS)\`   
- 　 \`cell timer()\`   
- 　 \`void zType(const char\* str)\`   
- 　 \`void emit(const char ch)\`   
- 　 \`cell fOpen(cell name, cell mode)\`   
- 　 \`void fClose(cell fh) { fclose((FILE\*)fh); }\`   
- 　 \`cell fRead(cell buf, cell sz, cell fh)\`   
- 　 \`cell fWrite(cell buf, cell sz, cell fh)\`   
- 　 \`cell fSeek(cell fh, cell offset)\`   
- 　 \`char tib\[256\];\`   
- 　 \`void repl()\`   
- 　 \`void boot(const char \*fn)\`   
+ ◎system.c内部の関数\`  
+ 　 void ttyMode(int isRaw)\`   
+ 　 int qKey()\`   
+ 　 int key()\`   
+ 　 void ms(cell sleepForMS)\`   
+ 　 cell timer()\`   
+ 　 void zType(const char\* str)\`   
+ 　 void emit(const char ch)\`   
+ 　 cell fOpen(cell name, cell mode)\`   
+ 　 void fClose(cell fh) { fclose((FILE\*)fh); }\`   
+ 　 cell fRead(cell buf, cell sz, cell fh)\`   
+ 　 cell fWrite(cell buf, cell sz, cell fh)\`   
+ 　 cell fSeek(cell fh, cell offset)\`   
+ 　 char tib\[256\];\`   
+ 　 void repl()\`   
+ 　 void boot(const char \*fn)\`   
    
- \`◎main関数\`   
- 　\`int main(int argc, char \*argv\[\]) {\`   
- 　　\`cfInit();\`   
- 　　\`addLit("argc", (cell)argc);\`   
- 　　\`strcpy(tib, "argX");\`   
- 　　\`for (int i=0; (i\<argc) && (i\<10); i++) {\`   
- 　　　\`tib\[3\] \= '0' \+ i;\`   
- 　　　\`addLit(tib, (cell)argv\[i\]);\`   
- 　　　\`}\`   
- 　　\`boot((1\<argc) ? argv\[1\] : 0);\`   
- 　　\`while (1) { repl(); }\`   
- 　　\`return 0;\`   
- 　\`}\`
+ ◎main関数   
+ 　int main(int argc, char \*argv\[\]) {   
+ 　　cfInit();   
+ 　　addLit("argc", (cell)argc);   
+ 　　strcpy(tib, "argX");   
+ 　　for (int i=0; (i\<argc) && (i\<10); i++) {   
+ 　　  tib\[3\] \= '0' \+ i;   
+ 　　　addLit(tib, (cell)argv\[i\]);   
+ 　　　}   
+ 　　boot((1\<argc) ? argv\[1\] : 0);   
+ 　　while (1) { repl(); }   
+ 　　return 0;   
+ 　}  
 
-\~\~\~
+~~~
 
-\#\# ChatGPT：
+## ChatGPT：
 
 以下、提示してくれた `system.c` の関数群と `main()` について、「何のためにあるか」「VM/REPLのどこで使われるか」が見えるように整理して説明します（forth-dwc / cf 系の“最小OS層”としての system.c という前提で書きます）。
 
@@ -270,30 +270,30 @@ system.c を整理するなら、機能別にセクション分けすると一�
 
 必要なら、次のステップとして **「system.c の並び替え案（見出しコメント付き）」** や、`addLit("argX", argv[i])` が“文字列ポインタ”である点を踏まえて **Forth側で扱いやすくする受け口（例：`arg1$` のように長さ付き文字列にする）** の設計案も一緒に出せます。
 
-\#\# 私：  
-\`cf.cで出てくる関数についても、役割の説明リストを教えてください。\`
-
-\`static void push(cell x)\`   
-\`static cell pop()\`   
-\`static void rpush(cell x)\`   
-\`static cell rpop()\`   
-\`static void comma(cell n)\`   
-\`static int changeState(int newState)\`   
-\`static void checkWS(char c)\`   
-\`static int nextWord()\`  
-\`static DE\_T \*addWord(char \*w)\`   
-\`static DE\_T \*findWord(const char \*w)\`   
-\`static void compileNumber(cell n)\`   
-\`void addLit(char \*name, cell val)\`   
-\`static void cfInner(cell pc)\`   
-\`static int isNumber(const char \*w)\`   
-\`static void executeWord(DE\_T \*dp)\`   
-\`static void compileWord(DE\_T \*dp)\`   
-\`static int isStateChange()\`   
-\`void cfOuter(const char \*src)\`   
-\`void cfInit()\`
-
-\#\# ChatGPT：
+## 私：  
+cf.cで出てくる関数についても、役割の説明リストを教えてください。  
+  
+static void push(cell x)   
+static cell pop()   
+static void rpush(cell x)   
+static cell rpop()   
+static void comma(cell n)   
+static int changeState(int newState)   
+static void checkWS(char c)   
+static int nextWord()  
+static DE\_T \*addWord(char \*w)   
+static DE\_T \*findWord(const char \*w)   
+static void compileNumber(cell n)   
+void addLit(char \*name, cell val)   
+static void cfInner(cell pc)   
+static int isNumber(const char \*w)   
+static void executeWord(DE\_T \*dp)   
+static void compileWord(DE\_T \*dp)   
+static int isStateChange()   
+void cfOuter(const char \*src)   
+void cfInit()  
+  
+## ChatGPT：
 
 了解です。提示の `cf.c` はだいたい「Forth の中核（スタック/辞書/インタプリタ/コンパイラ）」が入っていて、関数は大きく **(A) スタック**, **(B) 辞書/コンパイル**, **(C) 外側インタプリタ**, **(D) 内側インタプリタ** に分かれます。以下、役割リストです。
 
@@ -468,14 +468,14 @@ system.c を整理するなら、機能別にセクション分けすると一�
 
 を **“C版 cf.c → Z80 asm 版 VM”** の対照表にして整理できます。
 
-\#\# 私：
-
+## 私：  
+  
 \#define PRIMS(X) \\  
  	X(DUP, "dup", t=TOS; push(t); ) \\  
  	X(SWAP, "swap", t=TOS; TOS=NOS; NOS=t; ) \\  
  	X(DROP, "drop", pop(); ) \\  
-について再度教えてください。
-
+について再度教えてください。  
+  
  Cで記述されたWORDのすべてが「\#define PRIMS(X) \\」で定義されて、用途に応じて  
  　　\#define X1(op, name, code) op,  
  　　\#define X2(op, name, code) NCASE op: code  
@@ -483,7 +483,7 @@ system.c を整理するなら、機能別にセクション分けすると一�
 で利用されていると理解しています。  
  Cで記述されたCFのWORDはこのPRIMSで記述されたものですべてでしょうか？cf-boot.fthやdisk.xfは外部ファイルとして読み込まれて、PRIMS(X)に追加されていくのでしょうか？
 
-\#\# ChatGPT：
+## ChatGPT：
 
 理解はかなり合っています。ポイントは、
 
@@ -591,12 +591,12 @@ system.c を整理するなら、機能別にセクション分けすると一�
 
 もし `disk.xf` の先頭数十バイト（ASCIIっぽい/バイナリっぽい）や、`boot()` の中で `disk.xf` をどう扱っているかのコード（fOpen/fReadしてる部分）を貼ってくれれば、「これは辞書イメージ方式か、Forthソース方式か」をはっきり判定して説明できます。
 
-\#\# 私：
+## 私：
 
-void cfInit()の中のstruct { char \*nm; cell val; } nvp\[\]のCFで登録されたFORTHワード変数になるのでしょうか？これは最後が{ 0 ,0 }となっていることから、後から定義して増えていくものかと思います。
-
-\#\# ChatGPT：
-
+`void cfInit()`の中の`struct { char \*nm; cell val; } nvp\[\]`の`CF`で登録されたFORTHワード変数になるのでしょうか？これは最後が`{ 0 ,0 }`となっていることから、後から定義して増えていくものかと思います。  
+  
+## ChatGPT：
+  
 とても良い所に気づいています 👍  
  結論から言うと、
 
@@ -785,11 +785,13 @@ void cfInit()の中のstruct { char \*nm; cell val; } nvp\[\]のCFで登録さ�
 
 * `addLit()` を **token-threaded VM の LIT にどう落とすか**
 
+## 私：
+
 このあたりが自然な次の一歩になります。
 
 では enum { STOP, LIT, JMP, JMPZ, NJMPZ, JMPNZ, NJMPNZ, PRIMS(X1) }; を教えてください。
 
-\#\# ChatGPT：
+## ChatGPT：
 
 では、この行を **CF の実行モデル（token-threaded VM）そのもの**として、噛み砕いて説明します。
 
@@ -1055,13 +1057,13 @@ Z80 では：
 
 どれから行きますか？
 
-\#\# 私：
+## 私：
 
 色々教えいただいてありがとうございます。 まだ頭の中で整理中であります。今の私の理解では以下のようになります。正しいでしょうか？  
  　・Cで記述されたCFのコアな部分では起動後に内容が追加されるのは定義されたスタック領域とワード変数だけである。  
  　・Cで記述されたCFのコアな部分は通常は変更されず、外部の.fthだけが状況に合わせて修正されていく。
-
-\#\# ChatGPT：
+  
+## ChatGPT：
 
 とても良い整理の仕方です。  
  結論から言うと、\*\*あなたの理解は「本質的に正しい」\*\*です。  
@@ -1164,34 +1166,34 @@ Z80 では：
 
 ## **③ 図で整理すると（最終形）**
 
-`┌─────────────┐`  
+`┌───────────────────────┐`  
 `│ Cで書かれたCFコア      │ ← 通常は固定`  
-`│                      │`  
-`│  - VM命令(enum/PRIMS)│`  
+`│                       │`  
+`│  - VM命令(enum/PRIMS) │`  
 `│  - データ/RSスタック   │`  
 `│  - 辞書管理           │`  
-`│  - inner / outer     │`  
-`└─────┬───────┘`  
+`│  - inner / outer      │`  
+`└─────────┬─────────────┘`  
           `│`  
           `▼`  
-`┌─────────────┐`  
-`│ 起動時に増えるもの      │`  
+`┌──────────────────────┐`  
+`│ 起動時に増えるもの     │`  
 `│                      │`  
-`│  - nvp[]の変数ワード   │`  
+`│  - nvp[]の変数ワード  │`  
 `│  - boot.fth の定義    │`  
-`│  - includeされた語彙   │`  
+`│  - includeされた語彙  │`  
 `│                      │`  
-`│ → すべて辞書に追加     │`  
-`└─────┬───────┘`  
+`│ → すべて辞書に追加    │`  
+`└─────────┬────────────┘`  
           `│`  
           `▼`  
-`┌─────────────┐`  
+`┌──────────────────────┐`  
 `│ ユーザー定義 (.fth)   │ ← 状況に応じて変更`  
-`│                     │`  
+`│                      │`  
 `│  - 新しいワード       │`  
 `│  - アプリ            │`  
 `│  - 実験              │`  
-`└─────────────┘`
+`└─────────────────────┘`
 
 ---
 
@@ -1222,11 +1224,11 @@ Z80 では：
 
 焦らず、今の整理はとても健全です。
 
-\#\# 私：
+## 私：
 
 自分でsystem.cとcf.cを眺めていて感じたことは、これらのsystem.cとcf.cはCFというFORTHシステムを形作る仮の部品の集合体であって、CFの実体はmain()が実行されたときにはじめて姿を見せると感じました。この表現は合っていますか？
 
-\#\# ChatGPT：
+## ChatGPT：
 
 はい――  
  その表現は **とても本質を突いています。**
@@ -1413,16 +1415,18 @@ CFはCコードの集合体ではなく、
 
 では Z80/MSX版で  
  「main() に相当する瞬間」はどこか？
-
+  
 そこに答えが出ると、  
  あなたのVM設計は一段完成します。
-
-\#\# 私：
-
-「では Z80/MSX版で 「main() に相当する瞬間」はどこか？」 考えてみましたが、かなりむつかしい問いかけに感じます。 実体がないものから実体が現れるとすると本当にコンパイラになってしまうのでしょうが、FORTHは違うと思います。CFが立ち上がるとメッセージと入力待ち状態になって、キー入力された文字列からは辞書の登録か実行が行われます。 FIG＿FORTHを調べていた時に、起動時に、「初期設定」→「ABORT」→「QUIT」と進んで終わってしまうのが不思議でした。ところが、実は「QUIT」の中は無限ループになっていて、その中で「キー入力」→「INTERPRET」でキーボードから入力されたWORD名や数値などが実行されていく。もしもエラーが発生すると、エラー処理の終わった後で「QUIT」が実行されて、（まるで何事も無かったのかのように）キー入力待ちに戻ってしまう。 すごくすっきりしているが、実際の動きがつかみにくい、不思議な感覚でいます。
-
-\#\# ChatGPT：
-
+  
+## 私：  
+  
+「では Z80/MSX版で 「main() に相当する瞬間」はどこか？」 考えてみましたが、かなりむつかしい問いかけに感じます。  
+実体がないものから実体が現れるとすると本当にコンパイラになってしまうのでしょうが、FORTHは違うと思います。CFが立ち上がるとメッセージと入力待ち状態になって、キー入力された文字列からは辞書の登録か実行が行われます。  
+FIG＿FORTHを調べていた時に、起動時に、「初期設定」→「ABORT」→「QUIT」と進んで終わってしまうのが不思議でした。ところが、実は「QUIT」の中は無限ループになっていて、その中で「キー入力」→「INTERPRET」でキーボードから入力されたWORD名や数値などが実行されていく。もしもエラーが発生すると、エラー処理の終わった後で「QUIT」が実行されて、（まるで何事も無かったのかのように）キー入力待ちに戻ってしまう。 すごくすっきりしているが、実際の動きがつかみにくい、不思議な感覚でいます。  
+  
+## ChatGPT：
+  
 その「不思議な感覚」、まさに **Forth の起動モデルの核心**です。あなたが書いた FIG-FORTH の流れ（初期設定→ABORT→QUIT、でも QUIT の中が無限ループ）は、\*\*“実体がないものから実体が現れる”というより「最小の実行機構が常駐していて、そこに言語が積み上がる」\*\*という発想にぴったり合っています。
 
 あなたの問いに答える形で、Z80/MSX 版での \*\*「main() に相当する瞬間」\*\*を、Forth らしく“見える形”に落とします。
@@ -1616,12 +1620,13 @@ Forth はコンパイラというより、もっと素朴に言うと：
 * QUIT（無限ループ）
 
 に“対応づけ”して図にしてみましょうか。  
- Z80側で「QUITの内側（入力→INTERPRET）」を最小で作ると、急に全体が掴めるようになります。
-
-「いきなり全体を作り上げるにはどこから手を付ければいいのだろう？」と思っていました。対応付けした図を見せていただけますか？
-
-\#\# ChatGPT：
-
+ Z80側で「QUITの内側（入力→INTERPRET）」を最小で作ると、急に全体が掴めるようになります。  
+  
+## 私：
+「いきなり全体を作り上げるにはどこから手を付ければいいのだろう？」と思っていました。対応付けした図を見せていただけますか？  
+  
+## ChatGPT：
+  
 もちろん。ここでは **C版CF（system.c/cf.c）** と、あなたの **Z80/MSX-DOS .COM 版（forth\_cf\_msx\_demo.asm）** を、FIG-FORTH 的な
 
 INIT → ABORT → QUIT（無限ループ）  
@@ -1694,32 +1699,32 @@ INIT → ABORT → QUIT（無限ループ）
 
 あなたの `forth_cf_msx_demo.asm` を、次の “箱” に分けると、どこから作るべきかが見えます。
 
-`┌───────────────────┐`  
+`┌────────────────────────────────┐`  
 `│ [A] start / INIT               │  ← cfInit相当`  
 `│   - SP/RS設定                   │`  
 `│   - 変数領域初期化              │`  
 `│   - 辞書初期化(HERE/LAST)       │`  
 `│   - PRIMSテーブル登録           │`  
 `│   - 画面に起動メッセージ         │`  
-`└─────────┬────────┘`  
+`└───────────────┬────────────────┘`  
                 `│`  
-`┌─────────▼─────────┐`  
+`┌───────────────▼────────────────┐`  
 `│ [B] ABORT（復帰ルーチン）        │`  
 `│   - DSを空に / STATE=0          │`  
 `│   - >IN=0 / エラーなら表示       │`  
 `│   - QUITへジャンプ              │`  
-`└───────────────────┘`  
+`└────────────────────────────────┘`  
                 `│`  
-`┌─────────▼─────────┐`  
+`┌───────────────▼────────────────┐`  
 `│ [C] QUIT（外側ループ）           │ ← repl相当`  
 `│   loop:                        │`  
 `│     - ACCEPT/KEYで入力取得       │`  
 `│     - INTERPRET                 │ ← cfOuter相当`  
 `│     - ok表示                    │`  
 `│     - JP loop                   │`  
-`└─────────┬──────────┘`  
+`└───────────────┬────────────────┘`  
                 `│`  
-`┌─────────▼──────────┐`  
+`┌───────────────▼──────────────────┐`  
 `│ [D] INTERPRET（外側インタプリタ）   │ ← cfOuter`  
 `│   - nextWord（単語切り出し）       │`  
 `│   - findWord（辞書探索）          │`  
@@ -1727,14 +1732,14 @@ INIT → ABORT → QUIT（無限ループ）
 `│      * 実行: executeWord         │`  
 `│      * compile: compileWord/LIT  │`  
 `│   - 数値なら LIT or push          │`  
-`└─────────┬──────────┘`  
+`└───────────────┬──────────────────┘`  
                 `│`  
-`┌─────────▼─────────┐`  
+`┌───────────────▼─────────────────┐`  
 `│ [E] INNER（内側インタプリタ）     │ ← cfInner`  
 `│   - token列を実行（switch相当）   │`  
 `│   - PRIMS（dup/swap/drop等）    │`  
 `│   - STOPで復帰                  │`  
-`└───────────────────┘`
+`└────────────────────────────────┘`
 
 ---
 
@@ -1793,16 +1798,16 @@ INIT → ABORT → QUIT（無限ループ）
 ---
 
 もしよければ、あなたの `forth_cf_msx_demo.asm` の現在のラベル構成（start 以降の主要ラベル名だけでOK）を貼ってください。  
- この図の \[A\]〜\[E\] を \*\*あなたの実ファイルのラベルに直接対応付けた“あなた専用の図”\*\*にして返します。
-
-\#\# 私：
-
-その前に質問ですが、私がFIG-FORTHを調べて理解した「ABORT」→「QUIT」の流れですが、CFではその部分はどのような構造になっているのでしょうか？
-
-\#\# ChatGPT：
-
-いい質問です。あなたの FIG-FORTH の理解（**ABORT → QUIT** で“何事もなかったように入力待ちへ戻る”）は、CFでも **ほぼ同じ思想**で実現されています。ただし CF は FIG-FORTH のように「ABORT というワード名」が前面に出るというより、**C 側の構造（repl/cfOuter の戻り方）として ABORT/QUIT 相当を作っている**ことが多いです。
-
+ この図の \[A\]〜\[E\] を \*\*あなたの実ファイルのラベルに直接対応付けた“あなた専用の図”\*\*にして返します。  
+  
+## 私：  
+  
+その前に質問ですが、私がFIG-FORTHを調べて理解した「ABORT」→「QUIT」の流れですが、CFではその部分はどのような構造になっているのでしょうか？  
+  
+## ChatGPT：  
+  
+いい質問です。あなたの FIG-FORTH の理解（**ABORT → QUIT** で“何事もなかったように入力待ちへ戻る”）は、CFでも **ほぼ同じ思想**で実現されています。ただし CF は FIG-FORTH のように「ABORT というワード名」が前面に出るというより、**C 側の構造（repl/cfOuter の戻り方）として ABORT/QUIT 相当を作っている**ことが多いです。  
+  
 あなたが貼ってくれた CF の `main()` から見える範囲だけで、対応関係をまとめます（※手元にあなたの実 `repl()` / `cfOuter()` の中身が無いので、ここは CF 系で典型の構造として説明します。違いがあれば、該当関数を貼ってくれれば「あなたのCFの実装そのもの」に即して描き直せます）。
 
 ---
@@ -1931,5 +1936,5 @@ FIG-FORTH の “ABORT が QUIT に戻る” の「戻り方」に近いのは�
 
 を、FIG-FORTHの ABORT/QUIT と **1対1対応の図**で確定版として描けます。
 
-\[ トップに戻る\](README.md)  
+[ トップに戻る](README.md)  
 

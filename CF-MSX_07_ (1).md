@@ -210,11 +210,13 @@ forth\_cf\_msx\_demo.asmの次のステップに移る前にsystem.cの整理が
 
 ### **ステップ2: `argv[i]` を `arg0`〜`arg9` として辞書登録**
 
+~~~
 `strcpy(tib, "argX");`  
 `for (int i=0; (i<argc) && (i<10); i++) {`  
     `tib[3] = '0' + i;`  
     `addLit(tib, (cell)argv[i]);`  
 `}`
+~~~
 
 * `tib` を一時作業バッファにして `"arg0" .. "arg9"` を作り、
 

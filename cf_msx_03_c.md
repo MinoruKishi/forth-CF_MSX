@@ -5,7 +5,9 @@
 # あなた:  
   
 makefileの記述の仕方を教えてください。私が行いたいのは、    
+~~~
  sjasmplus --inc --inc=include --raw=build/echo03.com src/test_echo03.asm    
+~~~
 を実行したいのです。  
   
 # ChatGPT:  
@@ -17,7 +19,9 @@ makefileの記述の仕方を教えてください。私が行いたいのは、
   
 ## **やりたいこと（再確認）**  
   
+~~~
 sjasmplus --inc --inc=include --raw=build/echo03.com src/test_echo03.asm  
+~~~
   
 * 入力：src/test_echo03.asm    
 * 出力：build/echo03.com    
@@ -33,6 +37,7 @@ sjasmplus --inc --inc=include --raw=build/echo03.com src/test_echo03.asm
   
 .  
   
+~~~
 ├─ Makefile  
   
 ├─ src/  
@@ -44,9 +49,11 @@ sjasmplus --inc --inc=include --raw=build/echo03.com src/test_echo03.asm
 │   └─ MACROS_Z80.I  
   
 └─ build/  
+~~~
   
 ### **Makefile（これだけで動く）**  
   
+~~~
 ASM     = sjasmplus  
   
 SRC     = src/test_echo03.asm  
@@ -64,6 +71,7 @@ $(OUT): $(SRC)
 clean:  
   
 	rm -f $(OUT)  
+~~~
   
 ⚠ 注意  
   
@@ -74,6 +82,7 @@ clean:
   
 ## **build ディレクトリを自動生成したい場合**  
   
+~~~
 ASM     = sjasmplus  
   
 SRC     = src/test_echo03.asm  
@@ -95,10 +104,13 @@ $(OUT): build $(SRC)
 clean:  
   
 	rm -rf build  
+~~~
   
 これで：  
   
+~~~
 make  
+~~~
   
 だけで OK です。  
   
@@ -106,21 +118,29 @@ make
   
 ## **よくあるエラー（以前のエラーの原因）**  
   
+~~~
 error: Unrecognized instruction: MACROS_Z80.I  
+~~~
   
 これは Makefile の問題ではなく asm 側の include 書き方です。  
   
 ### **❌ ダメな例**  
   
+~~~
 MACROS_Z80.I  
+~~~
   
 ### **✅ 正しい例（sjasmplus）**  
   
+~~~
 INCLUDE "MACROS_Z80.I"  
+~~~
   
 または  
   
+~~~
 INCLUDE "include/MACROS_Z80.I"  
+~~~
   
 --inc / --inc=include を指定していれば    
 拡張子 .I でも問題ありません  
@@ -129,6 +149,7 @@ INCLUDE "include/MACROS_Z80.I"
   
 ## **発展：複数 asm を扱いたい場合（参考）**  
   
+~~~
 ASM     = sjasmplus  
   
 INCDIR  = include  
@@ -150,6 +171,7 @@ build/%.com: src/%.asm | build
 clean:  
   
 	rm -rf build    
+~~~
 ---  
   
 ## **まとめ（重要ポイント）**  
@@ -174,10 +196,11 @@ clean:
 # あなた:  
   
 修正の途中経過です。以下はMACROS.Iの一部で、ここではMACROS.I内のマクロが呼び出されたときに、reg部分に書き込まれたレジスタ名が置き換えられます。    
-  IF reg=="AX"    
+ ` IF reg=="AX"`    
 のところで、regの内容がAXのときにTrueとなってほしいのですが、 IF AX=="AX"と展開されてしまい、ワーニングが発生しています。なにかいい修正方法はありますか？  
   
 ◎マクロの例    
+~~~
  MACRO I_JMP_IND reg    
   IF reg=="AX"    
     PUSH HL    
@@ -197,11 +220,13 @@ clean:
       JP (reg)    
   ENDIF ENDIF ENDIF    
  ENDM  
+~~~
   
 ◎発生するワーニングの例    
+~~~
 MACROS_Z80.I(104): warning[fwdref]: forward reference of symbol: IF AX=="AX"    
 test_echo03.asm(12): ^ emitted from here    
-M  
+~~~  
   
 # ChatGPT:  
   
@@ -220,6 +245,7 @@ M
   
 比較は文字列で行い、実際に JP ( ) に使うZ80レジスタは別引数で渡すのが安定です。  
   
+~~~
 MACRO I_JMP_IND x86reg, z80reg  
   
  IF x86reg == "AX"  
@@ -251,14 +277,17 @@ MACRO I_JMP_IND x86reg, z80reg
  ENDIF  
   
 ENDM  
+~~~
   
 呼び出し側をこうします：  
   
+~~~
 I_JMP_IND "AX", HL  
   
 I_JMP_IND "BX", BC  
   
 I_JMP_IND "DX", DE  
+~~~
   
 これなら IF は "AX" という文字列同士の比較になり、警告も消えます。文字列比較自体は sjasmplus の IF で普通に使われています（例：IF _VERSION = "1.07"）。   
   
@@ -268,6 +297,7 @@ I_JMP_IND "DX", DE
   
 呼び出しを I_JMP_IND AX に寄せたいなら、実体は上の2引数版にして、ラッパーを足すのが楽です。  
   
+~~~
 MACRO I_JMP_IND_AX  
   
  I_JMP_IND "AX", HL  
@@ -285,6 +315,7 @@ MACRO I_JMP_IND_DX
  I_JMP_IND "DX", DE  
   
 ENDM  
+~~~
   
 （sjasmplus のマクロは「引数の“値”で分岐」は弱いので、ここは割り切った方がハマりません。）  
   
@@ -309,10 +340,13 @@ ENDM
   
 マクロファイル（一部分）を下記のようにしてみました。そして MOV AX, BX で呼び出しましたが、エラーとなりました。文法的に何が悪かったのでしょうか？  
   
+~~~
 MACROS_Z80.I(34): error: Illegal instruction:     LD dst, src    
 test_echo03.asm(12): ^ emitted from here  
+~~~
   
 ------以下はマクロファイルの一部ーーーーー    
+~~~
 LBL_HL EQU HL    
 LBL_BC EQU BC    
 LBL_DE EQU DE    
@@ -349,6 +383,7 @@ src2 DEFS src
   
    MOV dst2, src2    
  ENDM  
+~~~
   
 # ChatGPT:  
   
@@ -374,6 +409,7 @@ sjasmplus で「引数が AX/BX/DX なら HL/BC/DE に読み替える」をや�
   
 ; --- 実体：文字列で分岐して Z80コードを出す ---  
   
+~~~
 MACRO I_MOV_S d, s  
   
  IF d=="AX"  
@@ -451,22 +487,27 @@ MACRO I_MOV_S d, s
  ENDIF  
   
 ENDM  
+~~~
   
 ; --- 呼び出しを 8086 風にするラッパー ---  
   
+~~~
 MACRO I_MOV dst, src  
   
  I_MOV_S "dst", "src"  
   
 ENDM  
+~~~
   
 呼び出し：  
   
+~~~
 I_MOV AX, BX   ; → LD HL,BC  
   
 I_MOV BX, AX   ; → LD BC,HL  
   
 I_MOV DX, BX   ; → LD DE,BC  
+~~~
   
 ポイントは "dst" / "src" です。    
 sjasmplus はマクロ引数を文字列展開できるので、これで "AX" "BX" が入って比較できます。  
@@ -520,12 +561,15 @@ Z80で 16bitレジスタ同士の転送は万能じゃないです。
 # あなた:  
   
 試してみましたが、    
+~~~
  MACRO I_MOV dst, src    
     I_MOV_S "dst", "src"    
  ENDM    
-の中のI_MOV_S "dst", "src"のためか、それぞれのレジスタ名がdstとsrcと認識されて、それ以外条件分岐の結果がELSEになっているようです。  
+~~~
+の中の`I_MOV_S "dst", "src"`のためか、それぞれのレジスタ名が`dst`と`src`と認識されて、それ以外条件分岐の結果がELSEになっているようです。  
   
-       INCLUDE "MACROS_Z80.I"   ; 命令マクロの“インタフェース”宣言（Z80実装は別）    
+ INCLUDE "MACROS_Z80.I"   ; 命令マクロの“インタフェース”宣言（Z80実装は別）    
+  
  MACRO I_MOV dst, src    
   I_MOV_S "dst", "src"    
  ENDM  
@@ -575,6 +619,7 @@ Z80で 16bitレジスタ同士の転送は万能じゃないです。
  ENDM  
   
       I_MOV  BX, AX    ; BX <- AX   (ここでは「W候補」をBXに置く約束)  
+~~~
   
 # ChatGPT:  
   
@@ -593,14 +638,17 @@ Z80で 16bitレジスタ同士の転送は万能じゃないです。
   
 呼び出しを I_MOV "BX","AX" みたいにします。  
   
+~~~
 MACRO I_MOV dst, src  
   
  I_MOV_S dst, src  
   
 ENDM  
+~~~
   
 ; 実体  
   
+~~~
 MACRO I_MOV_S d, s  
   
  IF d=="AX"  
@@ -614,12 +662,13 @@ MACRO I_MOV_S d, s
  ENDIF  
   
 ENDM  
+~~~
   
 ; 呼び出し  
   
-I_MOV "BX","AX"  
+ `I_MOV "BX","AX"`  
   
-ただ、あなたは 8086 風に I_MOV BX, AX と書きたいはずなので、次へ。  
+ただ、あなたは 8086 風に 'I_MOV BX, AX' と書きたいはずなので、次へ。  
   
 ---  
   
@@ -631,6 +680,7 @@ I_MOV "BX","AX"
   
 ; sjasmplus では “返す” はできないので、次の段で使うために別マクロへ渡す  
   
+```
 MACRO _MOV_DISPATCH dst, src, dst_s, src_s  
   
  I_MOV_S dst_s, src_s  
@@ -716,8 +766,9 @@ MACRO I_MOV dst, src
  ENDIF  
   
 ENDM  
+~~~
   
-これで I_MOV BX, AX のように 識別子比較（dst==BX） で分岐して、最終的に 文字列 "BX" "AX" を I_MOV_S に渡せます。  
+これで `I_MOV BX, AX` のように 識別子比較（dst==BX） で分岐して、最終的に 文字列 "BX" "AX" を `I_MOV_S` に渡せます。  
   
 つまり、「引数の中身を文字列化する」機能が無いので、テーブル（分岐）で変換するのが王道です。  
   
@@ -727,7 +778,9 @@ ENDM
   
 あなたの I_MOV_S の中で例えば  
   
+~~~
 LD HL,BC  
+~~~
   
 を書いてますが、Z80にはこの命令がありません。    
 なので “アセンブルが通っても実行できない” 以前に、普通はアセンブル段階で弾かれます。  
@@ -742,6 +795,7 @@ LD HL,BC
   
 例：BX <- AX（BC <- HL）  
   
+~~~
 PUSH HL  
   
 POP  BC  
@@ -751,6 +805,7 @@ AX <- BX（HL <- BC）
 PUSH BC  
   
 POP  HL    
+~~~
 ---  
   
 # **あなたの現状を最短で動かす：完成例（AX=HL, BX=BC, DX=DE）**  
@@ -759,6 +814,7 @@ POP  HL
   
 「文字列比較」自体を捨てて、dst==AX のように識別子比較に統一すると一番ラクです。  
   
+~~~
 MACRO I_MOV dst, src  
   
  ; BX <- AX など（AX=HL, BX=BC, DX=DE の割当）  
@@ -850,10 +906,13 @@ MACRO I_MOV dst, src
  ENDIF  
   
 ENDM  
+~~~
   
 これなら  
   
+~~~
 I_MOV BX, AX  
+~~~
   
 でちゃんと分岐します（dst==BX が真）。  
   

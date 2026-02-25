@@ -19,11 +19,11 @@ IF reg=="HL" のような比較はできません
 そのため、    
 reg が HL のとき  
   
-'IF reg=="HL"'  
+`IF reg=="HL"`  
   
 は  
   
- 'IF HL=="HL"'  
+ `IF HL=="HL"`  
   
 に展開され、HL は未定義シンボル → warning / error になります。  
   

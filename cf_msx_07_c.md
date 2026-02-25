@@ -11,6 +11,7 @@ forth_cf_msx_demo.asmの次のステップに移る前にsystem.cの整理がし
   
 ◎system.c内部の関数  
   
+~~~
 void ttyMode(int isRaw)    
 int qKey()    
 int key()    
@@ -30,8 +31,10 @@ char tib[256];
   
 void repl()    
 void boot(const char *fn)  
+~~~
   
 ◎main関数    
+~~~
 int main(int argc, char *argv[]) {    
 	cfInit();    
 	addLit("argc", (cell)argc);    
@@ -43,6 +46,7 @@ int main(int argc, char *argv[]) {
 	boot((1<argc) ? argv[1] : 0);    
 	while (1) { repl(); }    
 	return 0;    
+~~~
 }  
   
 # ChatGPT:  
@@ -155,6 +159,7 @@ addLit("argc", (cell)argc);
   
 ### **ステップ2:** argv[i] **を** arg0**〜**arg9 **として辞書登録**  
   
+~~~
 strcpy(tib, "argX");  
   
 for (int i=0; (i<argc) && (i<10); i++) {  
@@ -164,6 +169,7 @@ for (int i=0; (i<argc) && (i<10); i++) {
    addLit(tib, (cell)argv[i]);  
   
 }  
+~~~
   
 * tib を一時作業バッファにして "arg0" .. "arg9" を作り、    
 * それぞれの値に argv[i]（文字列ポインタ）を登録。    
@@ -212,6 +218,7 @@ system.c を整理するなら、機能別にセクション分けすると一�
   
 cf.cで出てくる関数についても、役割の説明リストを教えてください。  
   
+~~~
 static void push(cell x)     
 static cell pop()     
 static void rpush(cell x)     
@@ -232,6 +239,7 @@ static void compileWord(DE_T *dp)
 static int isStateChange()     
 void cfOuter(const char *src)    
 void cfInit()  
+~~~
   
 # ChatGPT:  
   
@@ -347,19 +355,25 @@ void cfInit()
   
 # あなた:  
   
+~~~
 #define PRIMS(X) \    
 	X(DUP,     "dup",     t=TOS; push(t); ) \    
 	X(SWAP,    "swap",    t=TOS; TOS=NOS; NOS=t; ) \    
 	X(DROP,    "drop",    pop(); ) \  
+      （以下続く）
+
+~~~
   
 について再度教えてください。  
   
 Cで記述されたWORDのすべてが「#define PRIMS(X) \」で定義されて、用途に応じて    
+~~~
 　　#define X1(op, name, code) op,    
 　　#define X2(op, name, code) NCASE op: code    
 　　#define X3(op, name, code) { op, name, 0 },    
+~~~
 で利用されていると理解しています。    
-Cで記述されたCFのWORDはこのPRIMSで記述されたものですべてでしょうか？cf-boot.fthやdisk.xfは外部ファイルとして読み込まれて、PRIMS(X)に追加されていくのでしょうか？  
+Cで記述されたCFのWORDはこのPRIMSで記述されたものですべてでしょうか？`cf-boot.fth`や`disk.xf`は外部ファイルとして読み込まれて、PRIMS(X)に追加されていくのでしょうか？  
   
 # ChatGPT:  
   
@@ -459,7 +473,7 @@ PRIMS（Cプリミティブ） + 起動時にロードしたForth定義（.fth �
   
 # あなた:  
   
-void cfInit()の中のstruct { char *nm; cell val; } nvp[]のCFで登録されたFORTHワード変数になるのでしょうか？これは最後が{ 0 ,0 }となっていることから、後から定義して増えていくものかと思います。  
+`void cfInit()`の中の`struct { char *nm; cell val; } nvp[]`のCFで登録されたFORTHワード変数になるのでしょうか？これは最後が{ 0 ,0 }となっていることから、後から定義して増えていくものかと思います。  
   
 # ChatGPT:  
   
@@ -482,6 +496,7 @@ void cfInit()の中のstruct { char *nm; cell val; } nvp[]のCFで登録され�
   
 典型的には cfInit() の中に、こんな配列があります（簡略）：  
   
+~~~
 static struct {  
   
    char *nm;  
@@ -503,6 +518,7 @@ static struct {
    { 0, 0 }  
   
 };  
+~~~
   
 ### **これは何か？**  
   
@@ -516,7 +532,7 @@ static struct {
   
 たとえば：  
   
-base  
+`base`  
   
 を実行すると、  
   
@@ -528,9 +544,11 @@ base
   
 つまり Forth 的には：  
   
+~~~
 base @      \ 現在の基数を読む  
   
 10 base !   \ 基数を10進にする  
+~~~
   
 が可能になるわけです。  
   
@@ -545,7 +563,7 @@ base @      \ 現在の基数を読む
   
 ここは 誤解しやすいポイント ですが、  
   
-{0,0} は    
+`{0,0}` は    
 「後から増える」ためではなく、    
 「C の for ループで走査を止めるための終端マーカー」  
   
@@ -553,11 +571,13 @@ base @      \ 現在の基数を読む
   
 典型コードはこんな感じです：  
   
+~~~
 for (i = 0; nvp[i].nm; i++) {  
   
    addLit(nvp[i].nm, nvp[i].val);  
   
 }  
+~~~
   
 * nm == 0 になったら終了    
 * 配列サイズを別に持たなくて済むための C の定番イディオム  
@@ -572,7 +592,7 @@ for (i = 0; nvp[i].nm; i++) {
   
 ### **例**  
   
-variable foo  
+`variable foo`  
   
 を実行すると：  
   
@@ -591,11 +611,12 @@ variable foo
   
 cfInit() ではたいていこうなっています：  
   
-for (i=0; nvp[i].nm; i++) {  
+~~~for (i=0; nvp[i].nm; i++) {  
   
    addLit(nvp[i].nm, nvp[i].val);  
   
 }  
+~~~
   
 addLit(name, val) の意味は：  
   
@@ -668,14 +689,18 @@ Z80/MSX で CF を再構成するうえで「核心部分」を掴めている�
 ##### **あなた:**  
   
 では    
+~~~
 enum { STOP, LIT, JMP, JMPZ, NJMPZ, JMPNZ, NJMPNZ, PRIMS(X1) };    
+~~~
 を教えてください。  
   
 ###### **ChatGPT:**  
   
 では、この行を CF の実行モデル（token-threaded VM）そのものとして、噛み砕いて説明します。  
   
+~~~
 enum { STOP, LIT, JMP, JMPZ, NJMPZ, JMPNZ, NJMPNZ, PRIMS(X1) };  
+~~~
   
 これは 「CF 仮想マシンが理解できる“命令コード（opcode）一覧”」 を定義しています。  
   
@@ -697,6 +722,7 @@ Forth 的に言うと：
   
 ## **2️⃣ enum の前半：VM制御用の「特別命令」**  
   
+~~~
 STOP,     *// 0*  
   
 LIT,      *// 1*  
@@ -710,6 +736,7 @@ NJMPZ,    *// 4*
 JMPNZ,    *// 5*  
   
 NJMPNZ,   *// 6*  
+~~~
   
 ### **🔹 STOP**  
   
@@ -719,9 +746,11 @@ NJMPNZ,   *// 6*
   
 Z80 VM なら：  
   
+~~~
 I_STOP:  
   
-   ret    
+   ret    --> （注）SYSTEMに戻るの意味だと思います
+~~~
 ---  
   
 ### **🔹 LIT**  
@@ -783,6 +812,7 @@ JMP addr
   
 ### **PRIMS(X1) 展開結果（例）**  
   
+~~~
 enum {  
   
    STOP,  
@@ -812,6 +842,7 @@ enum {
    ...  
   
 };  
+~~~
   
 👉 PRIMS に並んだ “すべての C プリミティブ” が opcode として enum に入る  
   
@@ -827,10 +858,13 @@ enum {
   
 → 実体は：  
   
+~~~
 int code[] = { DUP, DUP, ADD, STOP };  
+~~~
   
 ### **② inner interpreter が高速になる**  
   
+~~~
 switch (op) {  
   
    case DUP:   ... break;  
@@ -838,6 +872,7 @@ switch (op) {
    case ADD:   ... break;  
   
 }  
+~~~
   
 * Cコンパイラが jump table を作れる    
 * 関数ポインタより軽い  
@@ -870,7 +905,7 @@ switch (op) {
   
 増やしません。  
   
-enum { … PRIMS(X1) };  
+`enum { … PRIMS(X1) };`  
   
 は Cコンパイル時に確定。  
   
@@ -905,8 +940,10 @@ Z80 では：
   
 あなたがやっている  
   
+~~~
 8086 / C → Z80 マクロ化    
 token-threaded VM の再構築  
+~~~
   
 に 完全に対応する設計です。  
   
@@ -1087,8 +1124,8 @@ Cで記述されたCFのコアな部分は通常は変更されず、
 ## **④ 一言で言うと（あなたの理解の完成形）**  
   
 CFとは    
-「Cで書かれた固定VMの上に、    
-Forth自身が自分の言語と環境を積み上げていく系」    
+**「Cで書かれた固定VMの上に、**    
+**Forth自身が自分の言語と環境を積み上げていく系」**    
 である。  
   
 これはもう 実装者の視点です。  
@@ -1170,6 +1207,7 @@ system.c / cf.c には：
   
 ## **2️⃣ main() が呼ばれる瞬間**  
   
+~~~
 cfInit();  
   
 addLit(...);  
@@ -1177,6 +1215,7 @@ addLit(...);
 boot(...);  
   
 while(1) repl();  
+~~~
   
 ここで初めて：  
   
@@ -1196,7 +1235,9 @@ while(1) repl();
   
 CFの実体は：  
   
+~~~
 静的コード（C）＋ 動的辞書メモリ  
+~~~
   
 の合成体です。  
   
@@ -1204,11 +1245,15 @@ Cコードだけではまだ「可能性」に過ぎません。
   
 Forthは：  
   
+~~~
 実行時に自分自身を組み立てる言語  
+~~~
   
 だからあなたは  
   
+~~~
 「main()が走ったときに姿を見せる」  
+~~~
   
 と感じたわけです。  
   
@@ -1220,15 +1265,21 @@ Forthは：
   
 system.c / cf.c は：  
   
+~~~
 構造体  
+~~~
   
 main() 実行後は：  
   
+~~~
 生きたシステム  
+~~~
   
 あるいはもっとForth的に言えば：  
   
+~~~
 静的なVM + 動的な辞書 = Forth    
+~~~
 ---  
   
 # **さらに一段深い視点（重要）**  

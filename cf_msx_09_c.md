@@ -8,9 +8,9 @@ CFであるFORTシステムのMSX版（Z80）を考えています。
 FIG-FORTHではコンパクトなVMとWORDの集まりである辞書だけの構成だと理解しています。    
 CFではコンパクトなVMとプライムなどの配列データとそれを動かすためのCの関数群でできていると理解しています。CF起動時に実行されるmain()関数内で初期化が行われた後にFORTH辞書が生成されています。    
 CF-MSXではCFの仕組みを参考にしたいです。    
-そのため、構成としてはsystem.cのvoid ttyMode(int isRaw)からint main(int argc, char *argv[]) とcf.cのstatic int nextWord()以降を事前にWORDとして定義しておき、起動時にmainというWORDが実行されるだけ、ということを考えています。      
+そのため、構成としては`system.c`の`void ttyMode(int isRaw)`から`int main(int argc, char *argv[])` と`cf.c`の`static int nextWord()`以降を事前にWORDとして定義しておき、起動時にmainというWORDが実行されるだけ、ということを考えています。      
       
-今考えているのは#define PRIMS(X)のなかで組み込まれているt=TOS; push(t);などをどうやって定義するかで悩んでいて、LUAによるマクロが並べられたもので定義するか、ここは最初からZ80のアセンブラで定義するか迷っています。前者のLUAのマクロ列で定義は可能でしょうか？  
+今考えているのは`#define PRIMS(X)`のなかで組み込まれている`t=TOS; push(t);`などをどうやって定義するかで悩んでいて、LUAによるマクロが並べられたもので定義するか、ここは最初からZ80のアセンブラで定義するか迷っています。前者のLUAのマクロ列で定義は可能でしょうか？  
   
 # ChatGPT:  
   
@@ -46,6 +46,7 @@ Z80 でも同じで、まず「TOS をどのレジスタペアに置くか」を
   
 例：上方向に伸びるスタック（IY が次の空き位置を指す）なら：  
   
+~~~
 ; 16-bit cell, little endian  
   
 ; TOS=HL, DSP=IY (points to next free)  
@@ -73,6 +74,7 @@ POP_HL:
    ld h, (iy+1)  
   
    ret  
+~~~
   
 これで C の  
   
@@ -118,6 +120,7 @@ system.c の ttyMode〜main() と、cf.c の nextWord() 以降を「事前に WO
 以下は「LUAで primitive を列挙 → それぞれの実体コードを生成」する最小の雰囲気サンプルです。    
 （“部品”は Z80 マクロ/サブルーチンで持つ想定）  
   
+~~~
 ; ====== core regs convention ======  
   
 ; TOS = HL  

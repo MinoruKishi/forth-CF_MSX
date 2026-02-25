@@ -5,7 +5,9 @@
 # あなた:  
   
 以下のDE_Tとcellを教えてください。    
+~~~
 typedef struct { cell xt; byte flags, len; char name[NAME_MAX+1]; } DE_T;  
+~~~
   
 # ChatGPT:  
   
@@ -17,6 +19,7 @@ CF / Forth 系 VM の「ワード1個分のヘッダ」を表しています。
   
 # **全体構造**  
   
+~~~
 typedef struct {  
   
    cell xt;  
@@ -26,6 +29,7 @@ typedef struct {
    char name[NAME_MAX+1];  
   
 } DE_T;  
+~~~
   
 つまり：  
   
@@ -46,7 +50,7 @@ cell は Forth の基本単位です。
   
 Forth では：  
   
-「1セル = VMの基本整数サイズ」  
+  `「1セル = VMの基本整数サイズ」`  
   
 環境によって違います。  
   
@@ -58,13 +62,13 @@ Forth では：
   
 CFの場合、たとえば：  
   
-typedef intptr_t cell;  
+  `typedef intptr_t cell;`  
   
 のように定義されている可能性があります。  
   
 つまり：  
   
-cell = VMの整数型  
+  `cell = VMの整数型`  
   
 ---  
   
@@ -72,13 +76,13 @@ cell = VMの整数型
   
 DE_T は  
   
-Dictionary Entry Type  
+  `Dictionary Entry Type`  
   
 の略です。  
   
 つまり  
   
-ワード1個分の辞書ヘッダ  
+  `ワード1個分の辞書ヘッダ`  
   
 です。  
   
@@ -92,7 +96,7 @@ Dictionary Entry Type
   
 Forthで言う：  
   
-' dup  
+  `' dup`  
   
 で得られる値。  
   
@@ -132,7 +136,7 @@ CF内部でビット管理されています。
   
 Forthは文字列終端に依存せず、  
   
-len + name  
+  `len + name`  
   
 で高速比較することが多いです。  
   
@@ -144,19 +148,22 @@ len + name
   
 +1 は  
   
-Cの文字列終端 '\0' 用  
+  `Cの文字列終端 '\0' 用`  
   
 です。  
   
 例：  
   
-dup  
+  `dup`  
   
 なら：  
   
+~~~
 len = 3  
   
-name = {'d','u','p','\0'}    
+name = {'d','u','p','\0'}   --> CF-MSXではMSX-DOS内部では以下のようになりそうです。  
+  name_CF_MSX = {'d','u','p','$','\0'}  
+~~~
 ---  
   
 # **4️⃣ メモリ上のイメージ**  
@@ -198,13 +205,13 @@ name = {'d','u','p','\0'}
   
 CFでは：  
   
-辞書を配列管理している  
+  `辞書を配列管理している`  
   
 可能性が高いです。  
   
 つまり：  
   
-DE_T dict[MAX_WORDS];  
+  `DE_T dict[MAX_WORDS];`  
   
 のように。  
   
@@ -219,7 +226,7 @@ DE_T dict[MAX_WORDS];
   
 この DE_T は  
   
-Cコアが管理するワードの登録テーブル  
+  `Cコアが管理するワードの登録テーブル`  
   
 です。  
   
@@ -237,7 +244,7 @@ MSX0へ移植する場合：
   
 特にZ80では：  
   
-cell = 16bit  
+  `cell = 16bit`  
   
 にする必要があります。  
   
@@ -247,6 +254,7 @@ cell = 16bit
   
 ### **DE_T = ワード1個分の辞書エントリ**  
   
+~~~
 xt     → 実行アドレス  
   
 flags  → 属性  
@@ -254,6 +262,7 @@ flags  → 属性
 len    → 名前長  
   
 name   → ワード名  
+~~~
   
 ### **cell = Forthの基本整数型**  
   

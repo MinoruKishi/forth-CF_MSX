@@ -46,14 +46,17 @@ sjasmplus のマクロ引数は
   
 ### **呼び出し側**  
   
+~~~
 I_JMP_IND_HL  
   
 I_JMP_IND_BC  
   
 I_JMP_IND_DE  
+~~~
   
 ### **定義側**  
   
+~~~
 MACRO I_JMP_IND_HL  
   
    PUSH HL  
@@ -77,6 +80,7 @@ MACRO I_JMP_IND_DE
    JP (DE)  
   
 ENDM  
+~~~
   
 ✔ 最も安全    
 ✔ sjasmplus の思想に合っている    
@@ -91,14 +95,17 @@ ENDM
   
 ### **1️⃣ 呼び出し側（数値を渡す）**  
   
+~~~
 I_JMP_IND 0   ; HL  
   
 I_JMP_IND 1   ; BC  
   
 I_JMP_IND 2   ; DE  
+~~~
   
 ### **2️⃣ マクロ定義**  
   
+~~~
 MACRO I_JMP_IND regid  
   
    IF regid == 0  
@@ -126,6 +133,7 @@ MACRO I_JMP_IND regid
    ENDIF  
   
 ENDM  
+~~~
   
 ✔ IF が正しく動作    
 ✔ sjasmplus 的には「正統派」  
@@ -134,6 +142,7 @@ ENDM
   
 ## **解決策③（裏技・非推奨）：未定義シンボル検出**  
   
+~~~
 MACRO I_JMP_IND reg  
   
    IFDEF HL  
@@ -143,6 +152,7 @@ MACRO I_JMP_IND reg
    ENDIF  
   
 ENDM  
+~~~
   
 ❌ 使い物になりません    
 sjasmplus ではマクロ引数は IFDEF 判定対象になりません。  
@@ -159,7 +169,7 @@ sjasmplus の IF は：
   
 つまり：  
   
-IF reg=="HL"  
+ `IF reg=="HL"`  
   
 は 思想的に不可能 です。  
   
@@ -246,6 +256,7 @@ ENDM
   
 あとで番号を増やすときに事故りやすいので、比較も定数で書くのが安全です。  
   
+~~~
 R_AX EQU 0  
   
 R_BX EQU 1  
@@ -279,11 +290,13 @@ MACRO I_JMP_IND regid
    ENDIF  
   
 ENDM  
+~~~
   
 ### **2) “コメント”を正しい対応関係にしておく**  
   
 例では R_AX ; HL になってますが、読み手が混乱しやすいので、対応表をコメントで固定しておくのがおすすめです。  
   
+~~~
 ; regid mapping:  
   
 ;   R_AX -> HL  
@@ -291,6 +304,7 @@ ENDM
 ;   R_BX -> BC  
   
 ;   R_DX -> DE    
+~~~
 ---  
   
 ## .ERROR **が効くか？**  
@@ -302,7 +316,7 @@ sjasmplus にはエラーメッセージを出す系の疑似命令があるの�
   
 ## **さらに拡張するなら（例：SP / IX / IY も）**  
   
-JP (IX) みたいに Z80が許す間接形式だけ追加していけば、分岐は同じ設計で増やせます。  
+`JP (IX)` みたいに Z80が許す間接形式だけ追加していけば、分岐は同じ設計で増やせます。  
   
 ---  
   

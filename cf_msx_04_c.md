@@ -5,9 +5,11 @@
 # あなた:  
   
 DebianでCPでディレクトリのコピーを実行しましたが、エラーとなりました。コマンドの記述は間違っていないと思いますが、どうしてこのようなことになるのでしょうか？    
+~~~
 root@MIN0debian:~# cp -r /home/min0/_Documents /media/sf_BridgeData    
 cp: cannot create regular file '/media/sf_BridgeData/_Documents/MSX/20260206_sjasmplus/build\echo.com': No such file or directory    
-r  
+~~~
+  
   
 # ChatGPT:  
   
@@ -91,17 +93,20 @@ find ... -name '*\*' の結果、build\echo.com のように \ を含む名前�
 # あなた:  
   
 ここで提案ですが、sjasmplusはLUAでマクロがかけるようです。やってみた結果を最後に添付しますので、    
+~~~
 　I_JMP    
 　I_JMP_IND    
 　I_INC    
 　I_MOV    
 　I_PUSH    
 　I_POP    
+~~~
 をLUAで書く直してください。  
   
 ＝＝＝＝＝＝＝＝＝＝    
 １）ソースコード：MACRO_TESTLUA.asm    
 　    
+~~~
 MACRO TESTLUA  
   
     LUA ALLPASS    
@@ -113,9 +118,11 @@ MACRO TESTLUA
   ENDM  
   
   TESTLUA　  
+~~~
   
 ２）アウトプットログ：zzz.txt  
   
+~~~
 # file opened: MACRO_TESTLUA.asm    
  1    0000                MACRO TESTLUA    
  2    0000 ~    
@@ -138,6 +145,7 @@ MACRO TESTLUA
 11    0002             >    
 12    0002    
 # file closed: MACRO_TESTLUA.asm  
+~~~
   
 # ChatGPT:  
   
@@ -150,6 +158,7 @@ MACRO TESTLUA
   
 ---  
   
+~~~
 ; =========================    
 ; MACROS_Z80_LUA.I 例    
 ; 8086風: AX,BX,DX を Z80: HL,BC,DE に割り当て    
@@ -277,10 +286,12 @@ MACRO I_POP reg
    end    
  ENDLUA    
 ENDM    
+~~~
 ---  
   
 ### **使い方例**  
   
+~~~
    I_MOV AX, BX  
   
    I_INC BX  
@@ -292,6 +303,7 @@ ENDM
 somewhere:  
   
    I_JMP_IND AX    
+~~~
 ---  
   
 もし次の段階として、  

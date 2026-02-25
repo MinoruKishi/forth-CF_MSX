@@ -9,7 +9,7 @@ cf-main.zip
 Zip アーカイブ    
 CFというFORTHシステムを理解しようとしています。cf.cの中に次の行があります。  
   
-static DE_T *addWord(char *w) {  
+`static DE_T *addWord(char *w) {`  
   
 ここのDE_Tとは何でしょうか？  
   
@@ -27,6 +27,7 @@ DE_T は CF における「辞書エントリ（Dictionary Entry）」を表す�
   
 cf.c ではなく cf.h に定義があります。  
   
+~~~
 typedef struct {  
   
    cell xt;          *// 実行トークン (execution token)*  
@@ -38,6 +39,7 @@ typedef struct {
    char name[NAME_MAX+1]; *// ワード名*  
   
 } DE_T;  
+~~~
   
 つまり DE_T は：  
   
@@ -64,7 +66,7 @@ Forth の 1 ワードを C 構造体として表したもの
   
 質問に出てきた関数です：  
   
-static DE_T *addWord(char *w)  
+`static DE_T *addWord(char *w)`  
   
 この関数は：  
   
@@ -76,6 +78,7 @@ static DE_T *addWord(char *w)
   
 ### **実際の処理（重要部分）**  
   
+~~~
 last -= sizeof(DE_T);          *// 辞書を後ろに伸ばす*  
   
 DE_T *dp = (DE_T*)last;        *// そこを DE_T とみなす*  
@@ -89,6 +92,7 @@ dp->len = ln;
 strcpy(dp->name, w);  
   
 return dp;  
+~~~
   
 👉 典型的な「メモリ直置き辞書」実装です    
 （colorForth / Tachyon 系らしい設計）  
@@ -127,13 +131,15 @@ return dp;
   
 ## **findWord() との関係**  
   
-static DE_T *findWord(const char *w)  
+`static DE_T *findWord(const char *w)`  
   
 は、  
   
+~~~
 DE_T *dp = (DE_T*)cw;  
   
 if ((ln == dp->len) && strEqI(dp->name, w)) { return dp; }  
+~~~
   
 という形で DE_T を順番に舐めて探すだけです。  
   
@@ -209,6 +215,7 @@ CF で DE_T が担っている要素は、FIG だと辞書ヘッダに入りま�
   
 Z80 なら、ポインタは 16bit で済むので、辞書はこういう感じにできます（例）：  
   
+~~~
 ; ---- Dictionary entry ----  
   
 dw  link        ; 前のワードへのポインタ (0 なら終端)  
@@ -221,7 +228,12 @@ db  'D','U','P' ; 名前文字列（長さ分）
   
 dw  cfa         ; コードフィールドアドレス（実行入口）  
   
-; PFA は cfa の先、または cfa が DOCOL などを指して PFA に続く  
+; PFA は cfa の先、または cfa が DOCOL などを指して PFA に続く
+  
+;  （注）PFAやCFAについては、つたない解説ではありますが、以下を参照願います。
+;　　　https://github.com/MIN0/ToUnderstandForth/blob/main/JPN/Documents/03-02_v0.21.01_JPN/03_02_03_Process_flow_of_ToUnderstandFORTH.MD  
+  
+~~~
   
 ### **そして「実行部」は FIG 流儀で分岐**  
   
@@ -312,6 +324,7 @@ FIG でも flags_len の上位ビットに割り当てれば同じ概念が使�
   
 そこで気になるのが、レジスタの構成をどうしようかということです。Z80のレジスタだけで実現するにはレジスタ数が少なすぎます。以下がヒントになるのかと思いましたがどうでしょうか？  
   
+~~~
 #define TOS           dstk[dsp]    
 #define NOS           dstk[dsp-1]    
 #define L0            lstk[lsp]    
@@ -321,6 +334,7 @@ FIG でも flags_len の上位ビットに割り当てれば同じ概念が使�
 #define X1(op, name, code) op,    
 #define X2(op, name, code) NCASE op: code    
 #define X3(op, name, code) { op, name, 0 },  
+~~~
   
 ###### **ChatGPT:**  
   
@@ -332,11 +346,13 @@ FIG でも flags_len の上位ビットに割り当てれば同じ概念が使�
   
 ### **1)** TOS / NOS / L0..L2 **は「レジスタ」じゃなくて「メモリ上のスタック」を前提にしている**  
   
+~~~
 #define TOS dstk[dsp]  
   
 #define NOS dstk[dsp-1]  
   
 #define L0  lstk[lsp]  
+~~~
   
 ...  
   
@@ -428,11 +444,13 @@ Z80でも「擬似レジスタ」を メモリ上の固定スロット（t0..t9�
   
 ### **3)** X1/X2/X3 **は opcode テーブル自動生成のため**  
   
+~~~
 #define X1(op,name,code) op,  
   
 #define X2(op,name,code) NCASE op: code  
   
 #define X3(op,name,code) { op, name, 0 },  
+~~~
   
 これは典型的な “Xマクロ” で、  
   
@@ -500,6 +518,7 @@ Z80でも「擬似レジスタ」を メモリ上の固定スロット（t0..t9�
   
 ### **ディスパッチ（ジャンプテーブル）雛形**  
   
+```
 ; HL = IP  
   
 NEXT:  
@@ -557,9 +576,11 @@ NEXT:
    ; もっと簡単にするなら：  
   
    ; pop hl で IP復帰して、jp (ix) のように飛ぶ形にする  
+~~~
   
 ざっくり見せる目的なので、一番分かりやすい形に寄せると：  
   
+~~~
 NEXT:  
   
    ld a,(hl)  
@@ -585,6 +606,7 @@ NEXT:
    jp (hl)            ; handlerへ  
   
 ; handlerは最後に jp NEXT  
+~~~
   
 （IXを毎回OPJTにするのが嫌なら、OPJTベースは固定レジスタに置くなど調整します）  
   
@@ -598,6 +620,7 @@ NEXT:
   
 例：DROP（dsp-- 相当）  
   
+~~~
 OP_DROP:  
   
    ; IX = &dstk[dsp]  
@@ -607,9 +630,11 @@ OP_DROP:
    dec ix             ; IX -= 2  (16bit cell)  
   
    jp NEXT  
+~~~
   
 例：DUP（push TOS）  
   
+~~~
 OP_DUP:  
   
    ; IX points to TOS cell  
@@ -627,6 +652,7 @@ OP_DUP:
    ld (ix+1),b  
   
    jp NEXT  
+~~~
   
 ここまでの雰囲気が CF の TOS/NOS マクロの発想に近いです。  
   
@@ -658,6 +684,7 @@ OP_DUP:
   
 XTは「実行ルーチンのアドレス」だと仮定します。  
   
+~~~
 ; HL = IP (points to next XT in the thread)  
   
 NEXT:  
@@ -675,6 +702,7 @@ NEXT:
    jp (hl)        ; jump to code for that XT  
   
    ; 各ワードの末尾で: ex de,hl ; jp NEXT などで戻る流儀もある  
+~~~
   
 このままだとIPの保持が面倒なので、よくあるのは IPをメモリ変数にするか、DEを常にIP専用にする規約です。ざっくり版としては：  
   
@@ -683,6 +711,7 @@ NEXT:
   
 にします：  
   
+~~~
 ; DE = IP  
   
 NEXT:  
@@ -700,6 +729,7 @@ NEXT:
    ld h,a        ; HL = XT  
   
    jp (hl)  
+~~~
   
 これが一番 “図式が明快” です。  
   
@@ -710,6 +740,7 @@ NEXT:
 * 現在のIPをRPに積む    
 * 新しいIPを「その定義のPFA（XT列の先頭）」にする  
   
+~~~
 ; DE = IP  
   
 ; HL = PFA (thread start) をワードごとに持たせる流儀  
@@ -733,6 +764,7 @@ DOCOL:
    ld e,l  
   
    jp NEXT  
+~~~
   
 実際は「ワードのCFAがDOCOLで、DOCOLは自分の後ろ（PFA）をIPにする」方式が多いので、HLへPFAを渡す部分は辞書レイアウト次第です。  
   
@@ -740,6 +772,7 @@ DOCOL:
   
 DSをZ80のSPで持つ場合、TOS/NOSはスタックトップから取ります（ざっくり）：  
   
+~~~
 ; ( n1 n2 -- n3 )  
   
 PRIM_PLUS:  
@@ -753,6 +786,7 @@ PRIM_PLUS:
    push hl  
   
    jp NEXT    
+~~~
 ---  
   
 ## **(1) と (2) の違いが “レジスタ数” に与える影響**  
@@ -814,6 +848,7 @@ CFの設計はざっくりこうです：
   
 CFの DE_T { xt, flags, len, name[] } を、そのままZ80でも持てます。  
   
+~~~
 DE:  
   
  dw xt        ; 実行先(またはthread/handlerの先頭)  
@@ -823,6 +858,7 @@ DE:
  db len  
   
  db name[固定長]  ; 例: 16バイト固定、または 32バイト固定  
+~~~
   
 #### **特徴**  
   
@@ -840,12 +876,15 @@ DE:
   
 ### **1ワード = 1ブロック（例）**  
   
+~~~
 [ LINK ] [ FLAGS+LEN ] [ NAME... ] [ (PAD) ] [ CFA/XT ] [ PFA... ]  
+~~~
   
 Z80でよく使う実用的なレイアウト（例）を示します。  
   
 ### **例A：ヘッダ直後にCFA、その後PFA（典型）**  
   
+~~~
 entry:  
   
  dw  link            ; 直前のワード（LATEST）へのポインタ  
@@ -859,6 +898,7 @@ entry:
  dw  cfa             ; 実行入口（プリミティブなら機械語、コロンならDOCOL）  
   
  ... pfa ...         ; コロン定義ならここにXT列、変数なら初期値など  
+~~~
   
 ### **例B：CFAを固定（DOCOL/PRIM識別を工夫）する流儀**  
   
@@ -868,6 +908,7 @@ entry:
 * コロン定義：CFA が DOCOL のアドレス（共通）    
   * PFA（CFAの次）に XT 列が並ぶ  
   
+~~~
 colon word:  
   
  dw link  
@@ -899,6 +940,7 @@ primitive word:
  (pad)  
   
  dw prim_code_entry   ; 直接Z80ルーチンへ  
+~~~
   
 #### **特徴**  
   
@@ -942,6 +984,7 @@ Z80的には **NAMEを“偶数長にしてパディング無し”**にする�
   
 ## **最小サンプル（FIG方式）の見た目（雰囲気）**  
   
+~~~
 LATEST -> DUP  
   
 DUP:  
@@ -965,6 +1008,7 @@ DROP:
  db  "DROP"  
   
  dw  prim_DROP  
+~~~
   
 こういう「辞書とZ80コードが同じソースで地続き」になります。  
   
@@ -1011,7 +1055,9 @@ DROP:
   
 FIG-forth の衝撃は、たぶんこれです：  
   
+~~~
 [ LINK ][ NAME ][ CFA ][ PFA ... ]  
+~~~
   
                ↑  
   
@@ -1033,19 +1079,19 @@ FIG-forth の衝撃は、たぶんこれです：
   
 CFは単にこう分離しただけです：  
   
+~~~
 [ 辞書メタ情報 ]  ← 変換用（name, flags, xt）  
   
 [ 実行コード ]    ← 実行用（opcode, thread, etc）  
+~~~
   
 しかしここで重要なのは：  
   
-CFの xt（execution token）は    
-すでに「実行可能な形」を指している  
+**CFの xt（execution token）はすでに「実行可能な形」を指している**  
   
 という事実です。  
   
-FIGの CFA と、CFの xt は    
-概念的に同じものです。  
+FIGの CFA と、CFの xt は概念的に同じものです。  
   
 ---  
   
@@ -1064,7 +1110,9 @@ FIGの CFA と、CFの xt は
 * 各ワードは CPUの CALL/RET で直接呼ばれる    
 * 辞書内に  
   
+~~~
 [ LINK ][ NAME ][ CODE ... ]  
+~~~
   
 という形で    
 ヘッダ直後に機械語コードが置かれる  
@@ -1083,7 +1131,9 @@ FIGの CFA と、CFの xt は
   * 実行アドレス    
 * が直接埋め込まれる  
   
+~~~
 [ LINK ][ NAME ][ JMP next ][ data... ]  
+~~~
   
 👉 NEXT が不要、または極小  
   
@@ -1119,8 +1169,8 @@ FIGの CFA と、CFの xt は
   
 つまり CF は  
   
-Forthを壊したのではなく    
-Cに“翻訳”した  
+**Forthを壊したのではなく**    
+**Cに“翻訳”した**  
   
 だけです。  
   
@@ -1128,12 +1178,13 @@ Cに“翻訳”した
   
 ## **forth-CF_MSX で「一体感」を取り戻す方法（CF方式のまま）**  
   
-あなたが「CF方式で行く」と決めた上で    
-FIG的な一体感を取り戻す現実的な道はこれです。  
+あなたが「CF方式で行く」と決めた上でFIG的な一体感を取り戻す現実的な道はこれです。  
   
 ### **方法A：DE_T を “実行ブロックの先頭に置く”**  
   
+~~~
 [ DE_T ][ opcode / thread / literal ... ]  
+~~~
   
 * xt = &DE_T + sizeof(DE_T)    
 * FIND したら、そのまま xt 実行  
@@ -1148,9 +1199,11 @@ FIG的な一体感を取り戻す現実的な道はこれです。
 * code[] をやめて    
 * 辞書領域に  
   
+~~~
 [ word1 header ][ word1 code ]  
   
 [ word2 header ][ word2 code ]  
+~~~
   
 👉 変換と実行が同じアドレス空間  
   
@@ -1225,7 +1278,9 @@ xt を“即実行可能なもの”にしておけば
   
 例（雰囲気）：  
   
+~~~
 [LINK][FLAGS+LEN][NAME...][PAD][BODY...]  
+~~~
   
 BODY はワード種別で変えます。  
   
@@ -1269,6 +1324,7 @@ token は 1バイトとして、JT[token] が 16bit の実装アドレスを持�
   
 擬似コード（雰囲気）：  
   
+~~~
 ; DE = IP  
   
 NEXT:  
@@ -1296,11 +1352,13 @@ NEXT:
    ld l,a           ; HL = impl addr  
   
    jp (hl)          ; CALLじゃなくてJP  
+~~~
   
 ### **プリミティブは「最後に必ず jp NEXT」**  
   
 たとえば DUP：  
   
+~~~
 PRIM_DUP:  
   
    ; DS=SP だと TOS は (SP) 近辺から取れる（実装流儀次第）  
@@ -1310,6 +1368,7 @@ PRIM_DUP:
    ; ... dup処理 ...  
   
    jp NEXT    
+~~~
 ---  
   
 ## **4) “コロン定義”をどう動かすか（CALLなし）**  
@@ -1337,6 +1396,7 @@ Z80で楽なのは、ディスパッチがそのまま **DE（IP）**しか知�
   
 * PRIM_DO_COLON は HL に新IP が入っている前提  
   
+~~~
 PRIM_DO_COLON:  
   
    ; push current IP (DE) onto return stack (IX)  
@@ -1356,11 +1416,13 @@ PRIM_DO_COLON:
    ld e,l  
   
    jp NEXT  
+~~~
   
 ### **EXIT（; の終わり）**  
   
 * RPからIPを戻して jp NEXT  
   
+~~~
 PRIM_EXIT:  
   
    ld e,(ix+0)  
@@ -1372,6 +1434,7 @@ PRIM_EXIT:
    inc ix  
   
    jp NEXT  
+~~~
   
 こうすると CALL/RET ゼロで、コロン定義も戻れます。  
   
@@ -1481,7 +1544,9 @@ Token Threaded では、
   
 ### **token列の実例（16bitセル想定）**  
   
+~~~
 [token_LIT] [low byte] [high byte] [token_DUP] [token_EXIT]  
+~~~
   
 視覚化すると：  
   
@@ -1500,7 +1565,9 @@ IP →
   
 #### **NEXT が LIT を読む**  
   
+~~~
 token = LIT  
+~~~
   
 #### **LIT の実装がやること**  
   
@@ -1513,6 +1580,7 @@ token = LIT
   
 ### **Z80風 擬似コード（概念）**  
   
+~~~
 PRIM_LIT:  
   
    ; DE = IP  
@@ -1532,6 +1600,7 @@ PRIM_LIT:
    push hl         ; DSに積む  
   
    jp NEXT    
+~~~
 ---  
   
 ### **なぜこの方式が優れているか**  
@@ -1587,7 +1656,9 @@ FIG型・一体辞書では 1ワードはこうなります：
   
 #### **構造**  
   
+~~~
 [ LINK ][ FLAGS+LEN ][ NAME... ][ PAD ][ BODY_PTR ][ BODY... ]  
+~~~
   
 * BODY_PTR = BODY の先頭アドレス    
 * FIND は    
@@ -1614,7 +1685,9 @@ FIG型・一体辞書では 1ワードはこうなります：
   
 #### **構造**  
   
+~~~
 [ LINK ][ FLAGS+LEN ][ NAME... ][ PAD ][ BODY... ]  
+~~~
   
 #### **BODY先頭計算**  
   
@@ -1640,7 +1713,9 @@ FIG型・一体辞書では 1ワードはこうなります：
   
 ### **「NAME を固定長にする」**  
   
+~~~
 [ LINK ][ FLAGS ][ NAME(16byte固定) ][ BODY... ]  
+~~~
   
 * BODY は常に一定オフセット  
   
@@ -1669,7 +1744,9 @@ FIG型・一体辞書では 1ワードはこうなります：
   
 ### **✅ 解決策A：BODY_PTR を持つ一体辞書**  
   
+~~~
 [ LINK ][ FLAGS+LEN ][ NAME... ][ PAD ][ BODY_PTR ][ BODY(token列) ]  
+~~~
   
 * FIND → BODY_PTR を HL に入れる    
 * DOCOL / 実行系は HL を新IPとして使う    
@@ -1715,9 +1792,13 @@ FIG型・一体辞書では 1ワードはこうなります：
 # あなた:  
   
 解決案Aですが、CFでもWORDの名前の部分は    
+~~~
 　[ FLAGS+LEN ][ NAME... ]    
+~~~
 で管理しているのでしょうか？ここを一般に使われている文字列の構造を使って、以下のように変えてしまうとＦＯＲＴＨではなくなってしまうでしょうか？（用意するＷＯＲＤが変わってしまう？）    
+~~~
 　[ FLAGS+LEN ][ ビット７で管理しないNAME＋０ ]  
+~~~
   
 # ChatGPT:  
   
@@ -1745,7 +1826,9 @@ FIG型・一体辞書では 1ワードはこうなります：
   
 なので CF 的には、あなたの案  
   
+~~~
 [FLAGS+LEN][ビット7で管理しない NAME + 0]  
+~~~
   
 はむしろ自然です。  
   
@@ -1799,11 +1882,15 @@ FIG/古典Forthには、名前の最後の文字に bit7 を立てて終端を�
   
 ### **案1：LENは残す（高速・簡単）**  
   
+~~~
 [ FLAGS ][ LEN ][ NAME...\0 ][ PAD ][ BODY_PTR ][ BODY... ]  
+~~~
   
 ### **案2：LENを捨てる（構造が単純）**  
   
+~~~
 [ FLAGS ][ NAME...\0 ][ PAD ][ BODY_PTR ][ BODY... ]  
+~~~
   
 （この場合、FINDは毎回strlen相当が入るので少し遅い）  
   
@@ -1827,7 +1914,9 @@ FIG/古典Forthには、名前の最後の文字に bit7 を立てて終端を�
   
 あなたの方向性（Token threaded・将来他ISAも）なら、  
   
+~~~
 [ LINK(16) ][ FLAGS(8) ][ LEN(8) ][ NAME bytes ][ 0 ][ PAD ][ BODY_PTR(16) ][ BODY... ]  
+~~~
   
 がバランス良いです。  
   
@@ -1869,7 +1958,9 @@ FIG/古典Forthには、名前の最後の文字に bit7 を立てて終端を�
   
 1ワード：  
   
+~~~
 [ LINK(16) ][ FLAGS(8) ][ LEN(8) ][ NAME bytes ][ 0 ][ PAD ][ BODY_PTR(16) ][ BODY... ]  
+~~~
   
 * NAME...0 はNUL終端（ビット7終端は使わない）    
 * PAD は BODY_PTR を 16bit 境界に合わせたい場合（今回は「0〜1バイトで調整」）    
@@ -1881,6 +1972,7 @@ FIG/古典Forthには、名前の最後の文字に bit7 を立てて終端を�
   
 以下を forth_cf_msx_demo.asm として保存してください。  
   
+~~~
 ; forth_cf_msx_demo.asm  
   
 ; MSX-DOS .COM demo: runs "2 3 + ." using token-threaded VM (JP-only)  
@@ -2404,6 +2496,7 @@ body_dot:
 LATEST:         dw      dict_dot  
   
                end     start  
+~~~
   
 ### **注意（小さなバグ修正ポイント）**  
   
@@ -2488,6 +2581,7 @@ MSXは スロット/ページ切替があるので、同じCPUアドレス（例
   
 org 0x0100 なのに、ソースの先頭に  
   
+~~~
 ds_area: defs 256  
   
 rp_area: defs 128  
@@ -2497,6 +2591,7 @@ rp_area: defs 128
 start:  
   
  ...  
+~~~
   
 と 大きい defs を先に置いているので、.COM の先頭（0x0100）からしばらくは 0x00（NOP）だらけになります。  
   
@@ -2527,6 +2622,7 @@ openMSXのデバッガで
   
 #### **例（冒頭だけこうする）**  
   
+~~~
        org 0100h  
   
        jp  start  
@@ -2552,6 +2648,7 @@ ds_top:
 rp_area: defs 128  
   
 rp_top:  
+~~~
   
 これだと  
   
@@ -2682,6 +2779,7 @@ forth_cf_msx_demo.asmを2か所修正して、正しく動作することを確�
 ・B-DOSで文字列出力をする場合は、文字列の最後に”＄”をつけること（0x00ではない）。  
   
 ＜＜完成版を添付します＞＞    
+~~~
 ; forth_cf_msx_demo.asm    
 ; MSX-DOS .COM demo: runs "2 3 + ." using token-threaded VM (JP-only)    
 ; assemble: sjasmplus --raw=forth_cf_msx_demo.com forth_cf_msx_demo.asm    
@@ -2980,6 +3078,7 @@ rp_area:        defs    128         ; 64 return addresses (16-bit)
 rp_top:                                 ; label after rp_area  
   
                 end     start  
+~~~
   
 # ChatGPT:  
   
@@ -3052,7 +3151,9 @@ rp_top:                                 ; label after rp_area
   
 これで、たとえば  
   
+~~~
 [ LIT 2 ][ LIT 3 ][ CALL body_plus ][ CALL body_dot ][ HALT ]  
+~~~
   
 みたいに「辞書ワードを呼ぶ」流れが完成します。  
   

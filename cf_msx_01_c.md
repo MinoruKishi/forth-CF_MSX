@@ -103,12 +103,15 @@ cf の README にある通り、cf は **「OPCODE列」＋「プリミティブ
   
 # あなた:  
   
-cfはforth-dwcから発展した、独立したforthシステムです。cfは基本的な機能しかサポートしていませんが、開発を進める中で検討していく予定です。このcfが動作する環境はCPUがZ80であるMSX0になります。cfのアプリケーションはFORTH言語で記述します。場合によってはcf内のC言語で書かれたソースコードを修正する場合もあります。核となるコードはZ80のアセンブラで記述します。方針としては以下のようになります。    
+cfはforth-dwcから発展した、独立したforthシステムです。cfは基本的な機能しかサポートしていませんが、開発を進める中で検討していく予定です。このcfが動作する環境はCPUがZ80であるMSX0になります。cfのアプリケーションはFORTH言語で記述します。場合によってはcf内のC言語で書かれたソースコードを修正する場合もあります。核となるコードはZ80のアセンブラで記述します。方針としては以下のようになります。  
+  
+~~~
 開発ツール：z88dk + SjASMPlus  
   
 実行環境（最初）：MSX0 （もしくはMSXエミュレータを使用する）  
   
 ベースソース：cfのZIPファイル内のアセンブラ、Cソースコード、FORTHソースコード  
+~~~
   
 # ChatGPT:  
   
@@ -286,12 +289,13 @@ msx_cf_skel/
 * ESC(0x1B)で終了（BDOS 0x00）    
   ※ BDOS呼び出しの仕方は MSX-DOS では CALL 0005h が基本です。  
   
+~~~
 ; echo.asm - Minimal MSX-DOS .COM: key -> emit (echo)  
   
 ; Assemble: sjasmplus --raw=echo.com src/echo.asm  
   
 ; Run on MSX-DOS: A:\>ECHO  
-~~~  
+  
        DEVICE ZXSPECTRUM48    ; (SjASMPlusの機能。無くても可)  
   
        ORG     0100h  
@@ -462,7 +466,7 @@ LIT:   DW $+2
        JMP APUSH  
 ~~~  
 これをもとにして、例えば    
- 　'MOV BX,AX ; IP <- IP+2'    
+ 　`MOV BX,AX ; IP <- IP+2`    
 の部分も一つのマクロを呼び出して実行するように書き換えます。その時は、MOVがマクロ名でAX,BXがそのマクロの変数に相当します。今回はZ80で実行するのでZ80用のコードを記述します。マクロの定義部分は別ファイルにしておけば、後で別のCPUでも同じことをするときに便利な気がします。    
 レジスタ名は、私はAXやBXで理解しているのでそちらのほうがわかりやすいのですが、やっぱりFORTHでの呼び方を用いるとＩＰ，ＳＰ，ＲＰ，Ｗのようなマクロ内の変数名のほうがいいと思います。    
 「標準ＦＯＲＴＨ　井上外志雄　著　共立出版株式会社」の180ページにＺ８０の場合と６８０９の場合の例がありますので、メモしておきます。  
@@ -473,10 +477,9 @@ LIT:   DW $+2
   SP = SP    
   RP = IX    
   W  = DE    
+  NEXT = (IY)  
 ~~~
-~~~
-NEXT = (IY)  
-  
+~~~  
 NEXT:   LD A,(BC)    
         INC BC    
         LD L,A    
@@ -772,9 +775,9 @@ ENDM
 以下のディレクトリで、sjasmplusを実行しましたが、エラーになってしまいます。何が悪かったんでしょう？  
   
 ~~~
-　　src  ---- --test_echo.asm    
-         build  -- --    
-         include  --MACROS_Z80.I  
+　　src ---- --test_echo.asm    
+     build    -- --    
+     include  --MACROS_Z80.I  
   
 $ sjasmplus --inc --inc=include --raw=test_echo.com src/test_echo.asm    
 SjASMPlus Z80 Cross-Assembler v1.21.1 (https://github.com/z00m128/sjasmplus)    
@@ -789,11 +792,13 @@ Errors: 1, warnings: 0, compiled: 38 lines, work time: 0.001 seconds
   
 原因はほぼこれです：  
   
-INCLUDE "MACROS_Z80.I" の書き方（または拡張子）が、SjASMPlus の INCLUDE 文として解釈されていないため、6行目の MACROS_Z80.I という文字列が「命令」として読まれてしまっています。  
+`INCLUDE "MACROS_Z80.I"` の書き方（または拡張子）が、SjASMPlus の INCLUDE 文として解釈されていないため、6行目の `MACROS_Z80.I` という文字列が「命令」として読まれてしまっています。  
   
 ログの  
   
-Unrecognized instruction: MACROS_Z80.I  
+~~~
+ Unrecognized instruction: MACROS_Z80.I  
+~~~
   
 は、「その行が INCLUDE ... ではなく、単に MACROS_Z80.I という“命令っぽいもの”が書かれている」と SjASMPlus が判断した時に出ます。  
   
@@ -805,7 +810,9 @@ Unrecognized instruction: MACROS_Z80.I
   
 SjASMPlus は INCLUDE が必要です（include だけ書いてもダメ）。  
   
+~~~
    INCLUDE "MACROS_Z80.I"  
+~~~
   
 * 行頭にラベル等を置かない    
 * INCLUDE を必ず書く    
@@ -819,7 +826,9 @@ MACROS_Z80.I だと「ヘッダっぽい」ですが、SjASMPlus 的には .inc 
   
 include/MACROS_Z80.inc に改名して、  
   
+~~~
    INCLUDE "MACROS_Z80.inc"  
+~~~
   
 にすると安全です。  
   
@@ -829,7 +838,9 @@ include/MACROS_Z80.inc に改名して、
   
 あなたの  
   
+~~~
 sjasmplus --inc --inc=include --raw=test_echo.com src/test_echo.asm  
+~~~
   
 は「include ディレクトリを include path に追加する」意味なので方向性は合っています。  
   

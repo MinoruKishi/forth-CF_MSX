@@ -1,6 +1,6 @@
 # GitHub MinoruKishi/forth-CF_MSX   
   
-## CCurl/CFを初めて読んだ人がChatGPTの力を借りてのMSX0向けFORTH改造の顛末記  
+## CCurl/CFを初めて読んだ人がChatGPTの力を借りてのMSX0向けFORTH改造の顛末記〜０３  
   
 # あなた:  
   
@@ -407,9 +407,9 @@ sjasmplus で「引数が AX/BX/DX なら HL/BC/DE に読み替える」をや�
   
 ### **✅ 動く形（2段マクロ：ラッパーで文字列を渡す）**  
   
+~~~
 ; --- 実体：文字列で分岐して Z80コードを出す ---  
   
-~~~
 MACRO I_MOV_S d, s  
   
  IF d=="AX"  
@@ -489,9 +489,9 @@ MACRO I_MOV_S d, s
 ENDM  
 ~~~
   
+~~~
 ; --- 呼び出しを 8086 風にするラッパー ---  
   
-~~~
 MACRO I_MOV dst, src  
   
  I_MOV_S "dst", "src"  
@@ -568,6 +568,7 @@ Z80で 16bitレジスタ同士の転送は万能じゃないです。
 ~~~
 の中の`I_MOV_S "dst", "src"`のためか、それぞれのレジスタ名が`dst`と`src`と認識されて、それ以外条件分岐の結果がELSEになっているようです。  
   
+~~~
  INCLUDE "MACROS_Z80.I"   ; 命令マクロの“インタフェース”宣言（Z80実装は別）    
   
  MACRO I_MOV dst, src    
@@ -644,11 +645,9 @@ MACRO I_MOV dst, src
  I_MOV_S dst, src  
   
 ENDM  
-~~~
   
 ; 実体  
   
-~~~
 MACRO I_MOV_S d, s  
   
  IF d=="AX"  
@@ -662,11 +661,11 @@ MACRO I_MOV_S d, s
  ENDIF  
   
 ENDM  
-~~~
   
 ; 呼び出し  
   
- `I_MOV "BX","AX"`  
+ I_MOV "BX","AX"  
+~~~
   
 ただ、あなたは 8086 風に 'I_MOV BX, AX' と書きたいはずなので、次へ。  
   
@@ -676,11 +675,11 @@ ENDM
   
 ### **1) まず、8086 レジスタ名を「文字列」に変換するマクロを用意**  
   
+~~~
 ; r が AX なら "AX" を返す、みたいな“変換”をする  
   
 ; sjasmplus では “返す” はできないので、次の段で使うために別マクロへ渡す  
   
-```
 MACRO _MOV_DISPATCH dst, src, dst_s, src_s  
   
  I_MOV_S dst_s, src_s  

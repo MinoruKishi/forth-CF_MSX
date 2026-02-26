@@ -39,6 +39,7 @@ Z80で8086コードを「そのまま」エミュレートする時に一番効�
   
 ### **CPU状態（メモリ上）**  
   
+~~~
 cpu.ax  cpu.bx  cpu.cx  cpu.dx  
   
 cpu.si  cpu.di  cpu.bp  cpu.sp  
@@ -46,6 +47,7 @@ cpu.si  cpu.di  cpu.bp  cpu.sp
 cpu.cs  cpu.ds  cpu.es  cpu.ss  
   
 cpu.ip  cpu.flags  
+~~~
   
 みたいに置きます。  
   

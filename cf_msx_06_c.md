@@ -1,6 +1,6 @@
 # GitHub MinoruKishi/forth-CF_MSX   
   
-## CCurl/CFを初めて読んだ人がChatGPTの力を借りてのMSX0向けFORTH改造の顛末記  
+## CCurl/CFを初めて読んだ人がChatGPTの力を借りてのMSX0向けFORTH改造の顛末記〜０６  
   
 # あなた:  
   
@@ -43,7 +43,9 @@ typedef struct {
   
 つまり DE_T は：  
   
+~~~
 Forth の 1 ワードを C 構造体として表したもの  
+~~~
   
 です。  
   
@@ -518,7 +520,7 @@ Z80でも「擬似レジスタ」を メモリ上の固定スロット（t0..t9�
   
 ### **ディスパッチ（ジャンプテーブル）雛形**  
   
-```
+~~~
 ; HL = IP  
   
 NEXT:  
@@ -1148,7 +1150,9 @@ FIGの CFA と、CFの xt は概念的に同じものです。
   * 機械語アドレスではなく    
   * opcode / token  
   
+~~~
 [ LINK ][ NAME ][ CFA=DOCOL ][ token ][ token ][ token ]  
+~~~
   
 * token → opcode → handler    
 * つまり CFの opcode VM を、FIG辞書の中に埋め込む  
@@ -1518,7 +1522,9 @@ Token Threaded では、
   
 ところが 数値リテラルは問題です。  
   
+~~~
 : TEST  123  DUP ;  
+~~~
   
 123 は  
   
@@ -1635,7 +1641,9 @@ PRIM_LIT:
   
 FIG型・一体辞書では 1ワードはこうなります：  
   
+~~~
 [ LINK ][ FLAGS+LEN ][ NAME... ][ BODY... ]  
+~~~
   
 ここで問題なのは：  
   
@@ -3167,7 +3175,9 @@ rp_top:                                 ; label after rp_area
   
 なので今後、デバッグ文字列は例えば：  
   
+~~~
 msg_hello: db "IP=", '$'  
+~~~
   
 のようにするのが安全です。  
   

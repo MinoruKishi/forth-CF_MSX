@@ -1,6 +1,6 @@
 # GitHub MinoruKishi/forth-CF_MSX   
   
-## CCurl/CFを初めて読んだ人がChatGPTの力を借りてのMSX0向けFORTH改造の顛末記  
+## CCurl/CFを初めて読んだ人がChatGPTの力を借りてのMSX0向けFORTH改造の顛末記〜０４  
   
 # あなた:  
   
@@ -40,6 +40,7 @@ cp: cannot create regular file '/media/sf_BridgeData/_Documents/MSX/20260206_sja
   
 *# 問題の「\を含む名前」が実在するか確認*  
   
+~~~
 ls -la "/home/min0/_Documents/MSX/20260206_sjasmplus/" | cat  
   
 ls -la "/home/min0/_Documents/MSX/20260206_sjasmplus/build" | cat  
@@ -51,6 +52,7 @@ find "/home/min0/_Documents/MSX/20260206_sjasmplus" -maxdepth 3 -name '*\*' -pri
 コピー先側も確認：  
   
 ls -la /media/sf_BridgeData/_Documents/MSX/20260206_sjasmplus/ 2>&1 | cat  
+~~~
   
 ## **解決策（確実）**  
   
@@ -62,13 +64,17 @@ ls -la /media/sf_BridgeData/_Documents/MSX/20260206_sjasmplus/ 2>&1 | cat
   
 *# 1) build ディレクトリを作る（なければ）*  
   
+~~~
 mkdir -p "/home/min0/_Documents/MSX/20260206_sjasmplus/build"  
+~~~
   
 *# 2) 変な名前のファイルを正しい場所へ移動*  
   
+~~~
 mv "/home/min0/_Documents/MSX/20260206_sjasmplus/build\\echo.com" \  
   
   "/home/min0/_Documents/MSX/20260206_sjasmplus/build/echo.com"  
+~~~
   
 \\ と書くのは、シェルで \ を文字として扱わせるためです。  
   
@@ -81,7 +87,9 @@ build\echo.com を作ってしまう原因がビルド手順にあるなら、�
   
 もしエラーが「コピー先の途中ディレクトリが無い」だけなら、  
   
+~~~
 mkdir -p "/media/sf_BridgeData/_Documents/MSX/20260206_sjasmplus"  
+~~~
   
 などで直る場合もありますが、今回の build\echo.com は名前自体が怪しいので、まず A/Bの修正が優先です。  
   

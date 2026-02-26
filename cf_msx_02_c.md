@@ -1,6 +1,6 @@
 # GitHub MinoruKishi/forth-CF_MSX   
   
-## CCurl/CFを初めて読んだ人がChatGPTの力を借りてのMSX0向けFORTH改造の顛末記  
+## CCurl/CFを初めて読んだ人がChatGPTの力を借りてのMSX0向けFORTH改造の顛末記〜０２  
   
 #   
   
@@ -13,17 +13,21 @@ sjasmplusでマクロ内でIF分を使うときに、マクロの変数名とHL�
 sjasmplus で マクロ引数（reg）と Z80 レジスタ名（HL / BC / DE など）を IF で比較したい場合、    
 結論から言うと：  
   
-IF reg=="HL" のような比較はできません    
+`IF reg=="HL"` のような比較はできません    
 → sjasmplus の IF は「文字列比較」ではなく「アセンブル時の式評価」だからです。  
   
 そのため、    
 reg が HL のとき  
   
-`IF reg=="HL"`  
+~~~asm macro
+IF reg=="HL"  
+~~~
   
 は  
   
- `IF HL=="HL"`  
+~~~asm macro
+ IF HL=="HL"  
+~~~
   
 に展開され、HL は未定義シンボル → warning / error になります。  
   
@@ -56,7 +60,7 @@ I_JMP_IND_DE
   
 ### **定義側**  
   
-~~~
+~~~asm macro
 MACRO I_JMP_IND_HL  
   
    PUSH HL  
@@ -105,7 +109,7 @@ I_JMP_IND 2   ; DE
   
 ### **2️⃣ マクロ定義**  
   
-~~~
+~~~asm macro
 MACRO I_JMP_IND regid  
   
    IF regid == 0  
@@ -142,7 +146,7 @@ ENDM
   
 ## **解決策③（裏技・非推奨）：未定義シンボル検出**  
   
-~~~
+~~~asm macro
 MACRO I_JMP_IND reg  
   
    IFDEF HL  
@@ -169,7 +173,9 @@ sjasmplus の IF は：
   
 つまり：  
   
- `IF reg=="HL"`  
+~~~
+ IF reg=="HL"  
+~~~
   
 は 思想的に不可能 です。  
   

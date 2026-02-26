@@ -1,6 +1,6 @@
 # GitHub MinoruKishi/forth-CF_MSX   
   
-## CCurl/CFを初めて読んだ人がChatGPTの力を借りてのMSX0向けFORTH改造の顛末記  
+## CCurl/CFを初めて読んだ人がChatGPTの力を借りてのMSX0向けFORTH改造の顛末記〜０７  
   
 # あなた:  
   
@@ -686,7 +686,7 @@ Z80/MSX で CF を再構成するうえで「核心部分」を掴めている�
   
 このあたりが自然な次の一歩になります。  
   
-##### **あなた:**  
+# **あなた:**  
   
 では    
 ~~~
@@ -694,7 +694,7 @@ enum { STOP, LIT, JMP, JMPZ, NJMPZ, JMPNZ, NJMPNZ, PRIMS(X1) };
 ~~~
 を教えてください。  
   
-###### **ChatGPT:**  
+# **ChatGPT:**  
   
 では、この行を CF の実行モデル（token-threaded VM）そのものとして、噛み砕いて説明します。  
   
@@ -1312,8 +1312,10 @@ inner interpreter は単なる実行装置。
   
 より正確に言うなら：  
   
+~~~
 CFはCコードの集合体ではなく、    
 main() 実行時に構築される「動的辞書を持つ仮想機械」である。  
+~~~
   
 ---  
   
@@ -1828,9 +1830,11 @@ FIG-FORTH の “ABORT が QUIT に戻る” の「戻り方」に近いのは�
   
 ### **FIG-FORTH**  
   
+~~~
 INIT → ABORT → QUIT(無限)  
   
              └─ ACCEPT → INTERPRET → …  
+~~~
   
 ### **CF**  
   

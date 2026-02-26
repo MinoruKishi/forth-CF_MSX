@@ -1,6 +1,6 @@
 # GitHub MinoruKishi/forth-CF_MSX   
   
-## CCurl/CFを初めて読んだ人がChatGPTの力を借りてのMSX0向けFORTH改造の顛末記  
+## CCurl/CFを初めて読んだ人がChatGPTの力を借りてのMSX0向けFORTH改造の顛末記〜０５  
   
 # あなた:  
   

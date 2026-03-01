@@ -611,7 +611,7 @@ Z80版で「最初に asm 化すべき核」はだいたいこれだけです：
 ### **スタック核（絶対必要）**  
   
 * DUP DROP SWAP OVER    
-* >R R> R@（最低限 >R と R> があると、あとが楽）  
+* \>R R> R@（最低限 >R と R> があると、あとが楽）  
   
 ### **メモリ（最低限）**  
   
@@ -746,7 +746,7 @@ qwc-boot.fth で if/then/begin/... を作るために、opcodeとして 数字�
   
 * DUP DROP SWAP OVER    
 * ! @ c! c@    
-* >r r> r@    
+* \>r r> r@    
 * +L -L（tstk/lstk操作。bootで locals を構成）  
   
 ## **1-C. “locals（x,y,z）系”（bootが最初から構築済み）**  
@@ -759,7 +759,7 @@ qwc-boot.fth で if/then/begin/... を作るために、opcodeとして 数字�
   
 ## **1-D. 算術・比較・論理（boot内や block-01 等で使う）**  
   
-* * + - /mod 1+ 1-    
+* \* \+ \- /mod 1+ 1-    
 * < = > 0= min max +!    
 * and or（xor は bootでは必須じゃないが、残してOK）  
   
@@ -1355,12 +1355,12 @@ boot の ( Files )〜( reboot ) のあたりに、MSX向けならこれを入れ
   
 まで一気に書けます。  
   
-##### **あなた:**  
+# **あなた:**  
   
 最小PRIMSだけで 2 3 + . まで動かすための「最初の block/テスト用ソース」    
 を最初に見てみたいです。ソースコード化してもらえますか？  
   
-###### **ChatGPT:**  
+# **ChatGPT:**  
   
 はい。まずは「最小PRIMSだけで 2 3 + . を実行して終了」するための **最初の .COM テスト用ソース（sjasmplus向け、単体で動くデモ）**を用意します。  
   
@@ -2043,6 +2043,8 @@ bdos_term0:
   
                jp      bdos_term0      ; ← ここを ret から変更  
   
+~~~
+  
 これで「どの実行経路で終わっても MSX-DOS に戻る」が明確になります。   
   
 ---  
@@ -2065,5 +2067,5 @@ BDOS 00h は CP/M 的には **“system reset / warm boot”** なので、CCP�
   
   
     
-[(次へ進む　＜現在工事中です＞)](./CF-MSX_11_c.md)        
+[(次へ進む　＜現在工事中です＞)](./cf-msx_11_c.md)        
 [(README.mdへ戻る)](../README.md)        

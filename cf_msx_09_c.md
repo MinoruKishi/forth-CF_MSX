@@ -1,6 +1,6 @@
 # GitHub MinoruKishi/forth-CF_MSX   
   
-## CCurl/CFを初めて読んだ人がChatGPTの力を借りてのMSX0向けFORTH改造の顛末記〜０９  
+## CCurl/CFを初めて読んだ人がChatGPTの力を借りてのMSX0向けFORTH改造の顛末記  
   
 # あなた:  
   
@@ -8,9 +8,9 @@ CFであるFORTシステムのMSX版（Z80）を考えています。
 FIG-FORTHではコンパクトなVMとWORDの集まりである辞書だけの構成だと理解しています。    
 CFではコンパクトなVMとプライムなどの配列データとそれを動かすためのCの関数群でできていると理解しています。CF起動時に実行されるmain()関数内で初期化が行われた後にFORTH辞書が生成されています。    
 CF-MSXではCFの仕組みを参考にしたいです。    
-そのため、構成としては`system.c`の`void ttyMode(int isRaw)`から`int main(int argc, char *argv[])` と`cf.c`の`static int nextWord()`以降を事前にWORDとして定義しておき、起動時にmainというWORDが実行されるだけ、ということを考えています。      
+そのため、構成としてはsystem.cのvoid ttyMode(int isRaw)からint main(int argc, char *argv[]) とcf.cのstatic int nextWord()以降を事前にWORDとして定義しておき、起動時にmainというWORDが実行されるだけ、ということを考えています。      
       
-今考えているのは`#define PRIMS(X)`のなかで組み込まれている`t=TOS; push(t);`などをどうやって定義するかで悩んでいて、LUAによるマクロが並べられたもので定義するか、ここは最初からZ80のアセンブラで定義するか迷っています。前者のLUAのマクロ列で定義は可能でしょうか？  
+今考えているのは#define PRIMS(X)のなかで組み込まれているt=TOS; push(t);などをどうやって定義するかで悩んでいて、LUAによるマクロが並べられたもので定義するか、ここは最初からZ80のアセンブラで定義するか迷っています。前者のLUAのマクロ列で定義は可能でしょうか？  
   
 # ChatGPT:  
   
@@ -46,7 +46,6 @@ Z80 でも同じで、まず「TOS をどのレジスタペアに置くか」を
   
 例：上方向に伸びるスタック（IY が次の空き位置を指す）なら：  
   
-~~~
 ; 16-bit cell, little endian  
   
 ; TOS=HL, DSP=IY (points to next free)  
@@ -74,7 +73,6 @@ POP_HL:
    ld h, (iy+1)  
   
    ret  
-~~~
   
 これで C の  
   
@@ -120,7 +118,6 @@ system.c の ttyMode〜main() と、cf.c の nextWord() 以降を「事前に WO
 以下は「LUAで primitive を列挙 → それぞれの実体コードを生成」する最小の雰囲気サンプルです。    
 （“部品”は Z80 マクロ/サブルーチンで持つ想定）  
   
-~~~
 ; ====== core regs convention ======  
   
 ; TOS = HL  
@@ -232,7 +229,6 @@ NEXT:
    ; ...  
   
    jp 0  
-~~~
   
 ここで重要なのは、LUAは  
   
@@ -298,9 +294,7 @@ PRIM_ADD の中身（スタック規約に依存する核）は Z80側に固定�
   
 ## **ビルド方法（sjasmplus）**  
   
-~~~
 sjasmplus --raw=cf_msx_demo.com cf_msx_demo.asm  
-~~~
   
 MSX-DOS 上で cf_msx_demo を実行。  
   
@@ -310,7 +304,6 @@ MSX-DOS 上で cf_msx_demo を実行。
   
 そのままコピペでOKです。$終端（BDOS 9）も全部正しく入れています。  
   
-~~~
 ; ============================================================  
   
 ; CF-MSX demo (MSX-DOS .COM, Z80)  
@@ -1448,7 +1441,6 @@ ENDLUA
 ; End  
   
 ; ============================================================    
-~~~
 ---  
   
 ## **ここからの拡張（次の一歩）**  
@@ -1473,12 +1465,9 @@ ENDLUA
   
 基本となるモデルの提示をありがとうございます。    
 先に進む前にPRIMS(X)について教えてもらいたいです。PRIMS(X)は    
-~~~
 	X(DUP,     "dup",     t=TOS; push(t); ) \    
-~~~
 のようなX(A, B, C)が７２行並んでいます。その中のCにあたる部分で実行手順が示されています。そこに書かれている”;"で区切られた「push()」や「pop()」、「t=xxx」達こそがLUAで記述されたマクロ定義実行部のマイクロコードだと感じています。これらのマイクロコードを分類してもらえませんか？  
   
-~~~
 #define PRIMS(X) \    
 	X(DUP,     "dup",     t=TOS; push(t); ) \    
 	X(SWAP,    "swap",    t=TOS; TOS=NOS; NOS=t; ) \    
@@ -1554,7 +1543,6 @@ ENDLUA
 	X(BYE,     "bye",     ttyMode(0); exit(0); )  
   
 enum { STOP, LIT, JMP, JMPZ, NJMPZ, JMPNZ, NJMPNZ, PRIMS(X1) };  
-~~~
   
 # ChatGPT:  
   
@@ -1836,10 +1824,8 @@ MSX-DOS でも一部は BDOS/FAT で似せられますが、最初のCF-MSX最�
 B. 算術・比較・論理（ALU）    
 　→Z80は除算命令や乗算命令がないので、どう対応するのか？CFのPRIMSの中で除算命令や乗算命令を使っていないのなら問題ないが。  
   
-~~~
 　　　t=pop(); TOS *= t;（*）    
 　　　t=pop(); TOS /= t;（/）  
-~~~
   
 D. コンパイル支援・リテラル（COMP）    
 　　CF っぽい「実行しながら辞書を伸ばす」側。    
@@ -1854,11 +1840,9 @@ I. 外側インタプリタ・辞書操作（OUTER / DICT）
 　　あなたの構想（main を WORD にする）に一番関係する層。    
 　　ここを “ワード化” するか “内蔵ルーチン化” するかで設計が決まります。    
 K. ファイル/OS/文字列/メモリ移動（HOST/OS/LIB）    
-~~~
 　micro-op：    
 　　POP args...; CALL host; PUSH result(if any)    
 　　MSX-DOS でも一部は BDOS/FAT で似せられますが、最初のCF-MSX最小系では後回しが吉。  
-~~~
   
 　→このIとKはFORTHらしく、VM以外は初期化の短いルーチン以外はすべてWORD化したいです。この項「CF MSXのPRIMS定義方法」で分類していやだいている理由がそこにあります。私の理解では72 行の C 部分さえ押さえてしまえば（すべてWORDに落とし込めば）FORTHはできたも同然だと思っていましたが、そう甘くはないのかもしれないなぁ、が私の感覚です）  
   
@@ -2064,16 +2048,12 @@ cfのソースコードを添付しておきますね。
 B. 算術・比較・論理（ALU）    
 　→Z80は除算命令や乗算命令がないので、どう対応するのか？CFのPRIMSの中で除算命令や乗算命令を使っていないのなら問題ないが。  
   
-~~~
 　　　t=pop(); TOS *= t;（*）    
 　　　t=pop(); TOS /= t;（/）  
-~~~
   
 D. コンパイル支援・リテラル（COMP）    
 　　CF っぽい「実行しながら辞書を伸ばす」側。    
-~~~
 　　　　compileNumber(pop());（lit,）    
-~~~
 　→ここはPRIMSからどう展開して辞書を作成しているのかを知らないといけません。これからの作業をやりやすくするために、CF.Cやsystem.cでどのように処理されているか教えてください。  
   
 I. 外側インタプリタ・辞書操作（OUTER / DICT）    
@@ -2084,11 +2064,9 @@ I. 外側インタプリタ・辞書操作（OUTER / DICT）
 　　あなたの構想（main を WORD にする）に一番関係する層。    
 　　ここを “ワード化” するか “内蔵ルーチン化” するかで設計が決まります。    
 K. ファイル/OS/文字列/メモリ移動（HOST/OS/LIB）    
-~~~
 　micro-op：    
 　　POP args...; CALL host; PUSH result(if any)    
 　　MSX-DOS でも一部は BDOS/FAT で似せられますが、最初のCF-MSX最小系では後回しが吉。  
-~~~
   
 　→このIとKはFORTHらしく、VM以外は初期化の短いルーチン以外はすべてWORD化したいです。この項「CF MSXのPRIMS定義方法」で分類していやだいている理由がそこにあります。私の理解では72 行の C 部分さえ押さえてしまえば（すべてWORDに落とし込めば）FORTHはできたも同然だと思っていましたが、そう甘くはないのかもしれないなぁ、が私の感覚です）  
   
@@ -2202,13 +2180,11 @@ cfOuter は
   
 ### **4.3** executeWord **が面白い（“callgate”の最小形）**  
   
-~~~
 code[17] = dp->xt;  
   
 code[18] = STOP;  
   
 cfInner(17);  
-~~~
   
 つまり「1命令だけ置いた小さなスレッド」を作って inner を回しているだけです。  
   
@@ -2320,11 +2296,8 @@ WORDだけでは成立しない（＝VM外に残る）4つ
 # cf_msx0_kernel.asm**（最小核 4点セットの実コード）**  
   
 sjasmplus でそのまま COM を作れます。    
-~~~
 sjasmplus --raw=cf_msx0_kernel.com cf_msx0_kernel.asm  
-~~~
   
-~~~
 ; ============================================================  
   
 ; CF-MSX0 Kernel Prototype (MSX-DOS .COM)  
@@ -2882,7 +2855,6 @@ thread_demo:
 ; ------------------------------------------------------------  
   
 str_banner:      db      "CF-MSX0 kernel test (inner/stack/opcode/callgate)$"    
-~~~
 ---  
   
 # **これが「障害は何か？」を見抜くために役立つ理由**  
@@ -2915,5 +2887,5 @@ str_banner:      db      "CF-MSX0 kernel test (inner/stack/opcode/callgate)$"
   
 まずはこのカーネルを MSX0 で動かして、ANS=5 が出るか試してみてください。動かなかった場合は、MSX0側の実行環境（MSX-DOSの種類、エミュレータ/実機、sjasmplusの出力ログ）を貼ってくれれば、そこで詰まる“MSX固有の障害”を特定できます。  
   
-[(次へ進む　＜現在工事中です＞)](./CF-MSX_10_a.md)      
+[(次へ進む)](./CF-MSX_10_c.md)      
 [(README.mdへ戻る)](../README.md)      

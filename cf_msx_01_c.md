@@ -1,6 +1,6 @@
 # GitHub MinoruKishi/forth-CF_MSX   
   
-## CCurl/CFを初めて読んだ人がChatGPTの力を借りてのMSX0向けFORTH改造の顛末記〜０１  
+## CCurl/CFを初めて読んだ人がChatGPTの力を借りてのMSX0向けFORTH改造の顛末記  
   
 #   
   
@@ -103,15 +103,12 @@ cf の README にある通り、cf は **「OPCODE列」＋「プリミティブ
   
 # あなた:  
   
-cfはforth-dwcから発展した、独立したforthシステムです。cfは基本的な機能しかサポートしていませんが、開発を進める中で検討していく予定です。このcfが動作する環境はCPUがZ80であるMSX0になります。cfのアプリケーションはFORTH言語で記述します。場合によってはcf内のC言語で書かれたソースコードを修正する場合もあります。核となるコードはZ80のアセンブラで記述します。方針としては以下のようになります。  
-  
-~~~
+cfはforth-dwcから発展した、独立したforthシステムです。cfは基本的な機能しかサポートしていませんが、開発を進める中で検討していく予定です。このcfが動作する環境はCPUがZ80であるMSX0になります。cfのアプリケーションはFORTH言語で記述します。場合によってはcf内のC言語で書かれたソースコードを修正する場合もあります。核となるコードはZ80のアセンブラで記述します。方針としては以下のようになります。    
 開発ツール：z88dk + SjASMPlus  
   
 実行環境（最初）：MSX0 （もしくはMSXエミュレータを使用する）  
   
 ベースソース：cfのZIPファイル内のアセンブラ、Cソースコード、FORTHソースコード  
-~~~
   
 # ChatGPT:  
   
@@ -202,22 +199,19 @@ cf.c のプリミティブは「番号が連番」の前提なので、MSX版で
   
 今のZIPは “PC版cf” なので、そのまま活かしつつ MSX0版を並走させると安全です。  
   
-~~~
-  
 cf/  
-  |  
-  --  host_pc/        # 既存ZIPの cf.c, system.c, cf-boot.fth（PCで動く参照実装）  
-  |  
-  --  target_msx/  
-        |    
-        --  asm/          # Z80核（NEXT, stacks, prims最低限）  
-        |  
-        --  forth/        # msx用 boot とアプリ  
-        |  
-        --  tools/        # 生成スクリプト（後述）  
-        |  
-        --  build/        # 出力 .COM （今回はsjasmplusを使用するので、.ROMではありません。）    
-~~~
+  
+ host_pc/        # 既存ZIPの cf.c/system.c/cf-boot.fth（PCで動く参照実装）  
+  
+ target_msx/  
+  
+   asm/          # Z80核（NEXT, stacks, prims最低限）  
+  
+   forth/        # msx用 boot とアプリ  
+  
+   tools/        # 生成スクリプト（後述）  
+  
+   build/        # 出力 .COM / .ROM    
 ---  
   
 ## **6) まずやるべき “最初のマイルストーン”（詰まりにくい順）**  
@@ -264,20 +258,18 @@ MSX-DOS の .COM は 0x0100 にロードされ実行されるのが前提で、B
 ---  
   
 # **1) ファイル構成（最小）**  
-
-~~~
+  
 msx_cf_skel/  
-     |  
-     --  src/  
-            |  
-            --  echo.asm  
-            |  
-            --  Makefile          (Linux/macOS向け。Windowsなら build.bat でもOK)  
-            |  
-            --  build.bat         (Windows向け)  
-            |  
-            --  README.md    
-~~~
+  
+ src/  
+  
+   echo.asm  
+  
+ Makefile          (Linux/macOS向け。Windowsなら build.bat でもOK)  
+  
+ build.bat         (Windows向け)  
+  
+ README.md    
 ---  
   
 # **2) src/echo.asm（SjASMPlus・MSX-DOS .COM）**  
@@ -289,7 +281,6 @@ msx_cf_skel/
 * ESC(0x1B)で終了（BDOS 0x00）    
   ※ BDOS呼び出しの仕方は MSX-DOS では CALL 0005h が基本です。  
   
-~~~
 ; echo.asm - Minimal MSX-DOS .COM: key -> emit (echo)  
   
 ; Assemble: sjasmplus --raw=echo.com src/echo.asm  
@@ -343,7 +334,6 @@ exit:
        LD      C, F_TERM0  
   
        CALL    BDOS  
-~~~
   
 補足：BDOS 0x06 の挙動（入力ポーリング等）は環境で差が出ることがあるので、まずはこれで「キー→表示」が動くことを確認し、次段で BIOS の CHGET/CHPUT などに切り替えるのが安定です。CHGET/CHPUT の存在自体は MSX BIOS の定番ルーチンです。  
   
@@ -351,7 +341,6 @@ exit:
   
 # **3) build.bat（Windows向け）**  
   
-~~~
 @echo off  
   
 setlocal  
@@ -373,12 +362,10 @@ if errorlevel 1 (
 echo Built: build\echo.com  
   
 endlocal    
-~~~
 ---  
   
 # **4) Makefile（Linux/macOS向け・任意）**  
   
-~~~
 SJASMPLUS ?= sjasmplus  
   
 all: build/echo.com  
@@ -392,7 +379,6 @@ build/echo.com: src/echo.asm
 clean:  
   
 	rm -rf build    
-~~~
 ---  
   
 # **5) README.md（動かし方）**  
@@ -442,44 +428,41 @@ Zip アーカイブ
 最初に行いたいのは８０８６の機械語のコードをそれぞれをマクロ名に変更してください。各マクロには実行部分をZ80コードで埋めます。    
 具体例としては、次のアセンブラコードにある機械語命令をそれぞれのマクロに変更します。  
   
-~~~
 ; ****FORTH_INNER_INTERPRETER****  
   
 DPUSH: PUSH DX    
 APUSH: PUSH AX    
-NEXT:  LODSW     ; AX <- (IP)    
-       MOV BX,AX ; IP <- IP+2    
+NEXT: LODSW ; AX <- (IP)    
+ MOV BX,AX ; IP <- IP+2    
 NEXT1: MOV DX,BX    
-       INC DX    ; SET W    
-       JMP WORD PTR [BX] ; JUMP TO (IP)  
+ INC DX ; SET W    
+ JMP WORD PTR [BX] ; JUMP TO (IP)  
   
 ; ****FORTH_DICTIONARY****  
   
 ; LIT  
   
-       DB 83H    
-       DB 'LI'    
-       DB 'T'+80H    
-       DW 0 ; end of dictionary    
-LIT:   DW $+2    
-       LODSW    
-       JMP APUSH  
-~~~  
+ DB 83H    
+ DB 'LI'    
+ DB 'T'+80H    
+ DW 0 ; end of dictionary    
+LIT: DW $+2    
+ LODSW    
+ JMP APUSH  
+  
 これをもとにして、例えば    
- 　`MOV BX,AX ; IP <- IP+2`    
+ 　MOV BX,AX ; IP <- IP+2    
 の部分も一つのマクロを呼び出して実行するように書き換えます。その時は、MOVがマクロ名でAX,BXがそのマクロの変数に相当します。今回はZ80で実行するのでZ80用のコードを記述します。マクロの定義部分は別ファイルにしておけば、後で別のCPUでも同じことをするときに便利な気がします。    
 レジスタ名は、私はAXやBXで理解しているのでそちらのほうがわかりやすいのですが、やっぱりFORTHでの呼び方を用いるとＩＰ，ＳＰ，ＲＰ，Ｗのようなマクロ内の変数名のほうがいいと思います。    
 「標準ＦＯＲＴＨ　井上外志雄　著　共立出版株式会社」の180ページにＺ８０の場合と６８０９の場合の例がありますので、メモしておきます。  
   
  ◎Ｚ８０の場合    
-~~~
-  IP = BC    
-  SP = SP    
-  RP = IX    
-  W  = DE    
-  NEXT = (IY)  
-~~~
-~~~  
+IP = BC    
+SP = SP    
+RP = IX    
+W  = DE    
+NEXT = (IY)  
+  
 NEXT:   LD A,(BC)    
         INC BC    
         LD L,A    
@@ -507,16 +490,13 @@ SEMIS:  DW $+2
         INC IX    
         INC IX    
        JP (IY)  
-~~~
-    
+  
 ◎６８０９の場合    
-~~~
-  IP = Y    
-  SP = U    
-  RP = S    
-  W  = X  
-~~~
-~~~  
+IP = Y    
+SP = U    
+RP = S    
+W  = X  
+  
 NEXT   LDX ,Y++    
        JMP [,X]  
   
@@ -527,8 +507,7 @@ DOCOL  PSHS Y
 SEMIS  FDB \*+2    
        LDY ,S++    
        BRA NEXT  
-~~~
-    
+  
 # ChatGPT:  
   
 思考時間: 1m 23s  
@@ -562,7 +541,6 @@ SEMIS  FDB \*+2
   
 ここは 8086風の見た目を残しますが、実体は “マクロ呼び出し” だけになります。  
   
-~~~
 ; inner_8086_macroified.asm  
   
 ; 8086の命令をすべてマクロ呼び出しに置換した版（Z80へ落とす前段）  
@@ -602,7 +580,6 @@ LIT:    DW $+2
        I_LODSW  
   
        I_JMP APUSH  
-~~~
   
 ポイント：  
   
@@ -629,7 +606,6 @@ LIT:    DW $+2
   
 ### **2-2) macros_z80.inc**  
   
-~~~
 ; macros_z80.inc (SjASMPlus)  
   
 ; 8086命令マクロをZ80コードで実装する  
@@ -725,7 +701,6 @@ MACRO I_LODSW
    LD H,A  
   
 ENDM    
-~~~
 ---  
   
 ## **3) ここまでで「あなたがやりたい形」になっています**  
@@ -774,10 +749,9 @@ ENDM
   
 以下のディレクトリで、sjasmplusを実行しましたが、エラーになってしまいます。何が悪かったんでしょう？  
   
-~~~
-　　src ---- --test_echo.asm    
-     build    -- --    
-     include  --MACROS_Z80.I  
+　　src  ---- --test_echo.asm    
+         build  -- --    
+         include  --MACROS_Z80.I  
   
 $ sjasmplus --inc --inc=include --raw=test_echo.com src/test_echo.asm    
 SjASMPlus Z80 Cross-Assembler v1.21.1 (https://github.com/z00m128/sjasmplus)    
@@ -786,19 +760,16 @@ Pass 2 complete (0 errors)
 test_echo.asm(6): error: Unrecognized instruction: MACROS_Z80.I    
 Pass 3 complete    
 Errors: 1, warnings: 0, compiled: 38 lines, work time: 0.001 seconds  
-~~~
   
 # ChatGPT:  
   
 原因はほぼこれです：  
   
-`INCLUDE "MACROS_Z80.I"` の書き方（または拡張子）が、SjASMPlus の INCLUDE 文として解釈されていないため、6行目の `MACROS_Z80.I` という文字列が「命令」として読まれてしまっています。  
+INCLUDE "MACROS_Z80.I" の書き方（または拡張子）が、SjASMPlus の INCLUDE 文として解釈されていないため、6行目の MACROS_Z80.I という文字列が「命令」として読まれてしまっています。  
   
 ログの  
   
-~~~
- Unrecognized instruction: MACROS_Z80.I  
-~~~
+Unrecognized instruction: MACROS_Z80.I  
   
 は、「その行が INCLUDE ... ではなく、単に MACROS_Z80.I という“命令っぽいもの”が書かれている」と SjASMPlus が判断した時に出ます。  
   
@@ -810,9 +781,7 @@ Errors: 1, warnings: 0, compiled: 38 lines, work time: 0.001 seconds
   
 SjASMPlus は INCLUDE が必要です（include だけ書いてもダメ）。  
   
-~~~
    INCLUDE "MACROS_Z80.I"  
-~~~
   
 * 行頭にラベル等を置かない    
 * INCLUDE を必ず書く    
@@ -826,9 +795,7 @@ MACROS_Z80.I だと「ヘッダっぽい」ですが、SjASMPlus 的には .inc 
   
 include/MACROS_Z80.inc に改名して、  
   
-~~~
    INCLUDE "MACROS_Z80.inc"  
-~~~
   
 にすると安全です。  
   
@@ -838,9 +805,7 @@ include/MACROS_Z80.inc に改名して、
   
 あなたの  
   
-~~~
 sjasmplus --inc --inc=include --raw=test_echo.com src/test_echo.asm  
-~~~
   
 は「include ディレクトリを include path に追加する」意味なので方向性は合っています。  
   
@@ -865,7 +830,6 @@ sjasmplus --inc=include --raw=test_echo.com src/test_echo.asm
   
 src/test_echo.asm の冒頭をこうしてみてください：  
   
-~~~
        ORG 0100h  
   
        INCLUDE "MACROS_Z80.I"  
@@ -873,7 +837,6 @@ src/test_echo.asm の冒頭をこうしてみてください：
 BDOS    EQU 0005h  
   
 ; ...    
-~~~
 ---  
   
 もし src/test_echo.asm の先頭10行だけ貼ってくれたら、どこが「INCLUDE として認識されていない」かをピンポイントで直した版を返せます。  
